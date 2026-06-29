@@ -270,6 +270,7 @@ const STATE = {
 
 // --- Desktop Icons ---
 const DESKTOP_APPS = [
+  { id:'browser', ico:'🌐', label:'Browser' },
   { id:'explorer', ico:'📁', label:'File Explorer' },
   { id:'computer', ico:'💻', label:'Computer' },
   { id:'calculator',ico:'🔢', label:'Calculator' },
@@ -558,11 +559,12 @@ function toggleStartMenu() {
 
 function initStartMenu() {
   const appList = [
-    { id:'calculator', ico:'🔢', name:'Calculator' },
-    { id:'notepad',    ico:'📝', name:'Notepad' },
-    { id:'explorer',   ico:'📁', name:'File Explorer' },
-    { id:'computer',   ico:'💻', name:'Computer' },
-    { id:'about',      ico:'⬡', name:'About Kilton' },
+    { id:'browser',   ico:'🌐', name:'Browser' },
+    { id:'calculator',ico:'🔢', name:'Calculator' },
+    { id:'notepad',   ico:'📝', name:'Notepad' },
+    { id:'explorer',  ico:'📁', name:'File Explorer' },
+    { id:'computer',  ico:'💻', name:'Computer' },
+    { id:'about',     ico:'⬡', name:'About Kilton' },
   ]
   const container = document.getElementById('startApps')
   container.innerHTML = ''
@@ -870,6 +872,117 @@ function launchAbout() {
   createWindow({title:'About Kilton', icon:'⬡', width:380, height:300, minWidth:300, minHeight:250, content:div})
 }
 
+// --- Browser ---
+function launchBrowser(url) {
+  const div = document.createElement('div')
+  div.style.cssText = 'display:flex;flex-direction:column;height:100%'
+  div.innerHTML = `
+    <div style="display:flex;align-items:center;gap:4px;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0">
+      <button data-b="back" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:13px">◀</button>
+      <button data-b="fwd" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:13px">▶</button>
+      <button data-b="ref" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:13px">⟳</button>
+      <div style="flex:1;display:flex;align-items:center;gap:4px;background:rgba(0,0,0,.3);border-radius:20px;padding:4px 12px">
+        <span style="color:#666;font-size:11px">🔒</span>
+        <input id="browserUrl" style="flex:1;border:none;outline:none;background:transparent;color:#ddd;font-size:12px" placeholder="Search or enter URL" spellcheck="false">
+      </div>
+      <button data-b="ext" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:12px">↗</button>
+    </div>
+    <div style="flex:1;position:relative;background:#fff">
+      <iframe id="browserFrame" style="width:100%;height:100%;border:none" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+      <div id="browserFallback" style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(20,20,30,.98);padding:40px;text-align:center;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+        <div style="font-size:40px">🌐</div>
+        <div style="font-size:18px;font-weight:300;color:#fff">This site can't be embedded</div>
+        <div style="color:#888;font-size:13px;max-width:400px;line-height:1.5">Some websites block being displayed inside other pages.</div>
+        <button id="browserOpenTab" style="padding:8px 24px;border:none;border-radius:6px;background:linear-gradient(135deg,#6a11cb,#2575fc);color:#fff;font-size:14px;cursor:pointer">Open in new tab →</button>
+        <button id="browserSearch" style="padding:6px 16px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:transparent;color:#aaa;font-size:12px;cursor:pointer;margin-top:4px">Search Google instead</button>
+      </div>
+    </div>`
+  const win = createWindow({title:'Browser', icon:'🌐', width:750, height:500, minWidth:400, minHeight:300, content:div})
+
+  const frame = div.querySelector('#browserFrame')
+  const urlInput = div.querySelector('#browserUrl')
+  const fallback = div.querySelector('#browserFallback')
+  const openTabBtn = div.querySelector('#browserOpenTab')
+  const searchBtn = div.querySelector('#browserSearch')
+  let history = [], histIdx = -1, currentUrl = ''
+
+  function navigate(url) {
+    if (!url) return
+    if (!url.match(/^https?:\/\//i)) {
+      if (url.includes('.')) url = 'https://' + url
+      else url = 'https://www.google.com/search?igu=1&q=' + encodeURIComponent(url)
+    }
+    currentUrl = url
+    urlInput.value = url
+    // Remove old history after current position
+    if (histIdx < history.length - 1) history = history.slice(0, histIdx + 1)
+    history.push(url); histIdx = history.length - 1
+    try { frame.src = url; fallback.style.display = 'none' } catch(e) {}
+    updateWinTitle('Loading...')
+  }
+
+  function checkFallback() {
+    // If iframe fails to load (blocked by X-Frame-Options), show fallback
+    try {
+      if (frame.contentDocument || frame.contentWindow) {
+        try {
+          const doc = frame.contentDocument || frame.contentWindow.document
+          if (doc && doc.body && doc.body.innerHTML) { fallback.style.display = 'none'; return }
+        } catch(e2) { /* cross-origin = blocked */ }
+      }
+    } catch(e) {}
+    // For known blocking sites, show fallback
+    const blocked = ['google.com', 'youtube.com', 'facebook.com', 'github.com']
+    if (blocked.some(d => currentUrl.includes(d))) { fallback.style.display = 'flex'; return }
+    // Otherwise, try loading and check after timeout
+    setTimeout(() => {
+      try {
+        if (frame.contentDocument && frame.contentDocument.body && frame.contentDocument.body.innerHTML.length > 0)
+          fallback.style.display = 'none'
+        else if (frame.contentDocument && frame.contentDocument.body && frame.contentDocument.body.innerHTML.length === 0)
+          fallback.style.display = 'flex'
+      } catch(e) { fallback.style.display = 'flex' }
+    }, 2000)
+  }
+
+  function updateWinTitle(t) {
+    win.title = t + ' - Browser'
+    const titleEl = win.el && win.el.querySelector('.winTitle')
+    if (titleEl) titleEl.textContent = t
+  }
+
+  frame.addEventListener('load', () => {
+    const t = frame.contentDocument ? frame.contentDocument.title : currentUrl
+    updateWinTitle(t || 'Browser')
+    fallback.style.display = 'none'
+  })
+  frame.addEventListener('error', checkFallback)
+
+  urlInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { navigate(urlInput.value); e.preventDefault() }
+  })
+
+  div.querySelector('[data-b="back"]').addEventListener('click', () => {
+    if (histIdx > 0) { histIdx--; navigate(history[histIdx], true) }
+  })
+  div.querySelector('[data-b="fwd"]').addEventListener('click', () => {
+    if (histIdx < history.length - 1) { histIdx++; navigate(history[histIdx], true) }
+  })
+  div.querySelector('[data-b="ref"]').addEventListener('click', () => { frame.src = currentUrl })
+  div.querySelector('[data-b="ext"]').addEventListener('click', () => {
+    if (currentUrl) window.open(currentUrl, '_blank')
+  })
+
+  openTabBtn.addEventListener('click', () => { if (currentUrl) window.open(currentUrl, '_blank') })
+  searchBtn.addEventListener('click', () => {
+    navigate('https://www.google.com/search?igu=1&q=' + encodeURIComponent(urlInput.value))
+  })
+
+  // Navigate to Google by default
+  navigate(url || 'https://www.google.com/webhp?igu=1')
+  setTimeout(checkFallback, 1500)
+}
+
 // --- Clock ---
 function updateClock() {
   const now = new Date()
@@ -1100,6 +1213,7 @@ REGISTERED_APPS['notepad'] = launchNotepad
 REGISTERED_APPS['explorer'] = launchExplorer
 REGISTERED_APPS['computer'] = launchExplorer
 REGISTERED_APPS['about'] = launchAbout
+REGISTERED_APPS['browser'] = launchBrowser
 
 // --- Desktop Start (after auth) ---
 function startDesktop() {
