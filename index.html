@@ -296,8 +296,38 @@ const STATE = {
 }
 
 // --- App Management ---
+const VERSION_KEY = 'kilton_ver'
 const INSTALLED_KEY = 'kilton_installed'
 const REGISTERED_APPS = {}
+
+// Auto-reset corrupted localStorage on version change
+;(function() {
+  const ver = '2.0'
+  try {
+    const old = localStorage.getItem(VERSION_KEY)
+    if (old !== ver) {
+      // Clean up old/corrupted keys
+      const keys = ['kilton_installed', 'kilton_fs_default', 'kilton_notepad']
+      keys.forEach(k => { try { localStorage.removeItem(k) } catch(e) {} })
+      // Also clean per-user FS keys
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith('kilton_fs_')) {
+          try { localStorage.removeItem(key) } catch(e) {}
+        }
+      }
+      localStorage.setItem(VERSION_KEY, ver)
+    }
+  } catch(e) {}
+  // Ensure installed key is valid
+  try {
+    const v = localStorage.getItem(INSTALLED_KEY)
+    if (v) { JSON.parse(v) } // throws if invalid
+    else localStorage.setItem(INSTALLED_KEY, '[]')
+  } catch(e) {
+    try { localStorage.setItem(INSTALLED_KEY, '[]') } catch(e2) {}
+  }
+})()
 
 const BUILT_IN_APPS = [
   { id:'market',   ico:'🛒', label:'Kilton Market' },
