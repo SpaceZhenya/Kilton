@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kilton OS</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',Tahoma,sans-serif;font-size:13px;color:#fff}
+/* Desktop */
+#desktop{position:fixed;top:0;left:0;right:0;bottom:40px;background:linear-gradient(135deg,#1a0533 0%,#0d1b3e 30%,#1a3a5c 60%,#2d1b4e 100%);overflow:hidden}
+#desktop canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0}
+#desktopIcons{position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;padding:12px;display:flex;flex-direction:column;flex-wrap:wrap;align-content:flex-start;gap:4px}
+.deskIcon{display:flex;flex-direction:column;align-items:center;width:74px;padding:6px 4px;border-radius:4px;cursor:pointer;gap:4px}
+.deskIcon:hover{background:rgba(255,255,255,.1)}
+.deskIcon:active{background:rgba(255,255,255,.15)}
+.deskIcon .icon{font-size:32px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+.deskIcon .label{font-size:11px;text-align:center;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8);word-break:break-word;line-height:1.2;max-width:70px}
+
+/* Taskbar */
+#taskbar{position:fixed;bottom:0;left:0;right:0;height:40px;background:rgba(0,0,0,.85);backdrop-filter:blur(12px);display:flex;align-items:center;z-index:9999;padding:0 4px;border-top:1px solid rgba(255,255,255,.08)}
+#startBtn{padding:4px 16px;height:32px;border:none;background:transparent;color:#fff;font-size:14px;font-weight:600;cursor:pointer;border-radius:4px;display:flex;align-items:center;gap:6px;margin-right:2px}
+#startBtn:hover{background:rgba(255,255,255,.1)}
+#startBtn:active{background:rgba(255,255,255,.15)}
+#startBtn .logo{font-size:18px}
+#taskbarWindows{flex:1;display:flex;align-items:center;gap:2px;overflow:hidden;padding:0 4px}
+.tbWin{display:flex;align-items:center;gap:6px;padding:4px 12px;height:32px;min-width:80px;max-width:200px;border:none;background:rgba(255,255,255,.06);color:#ccc;font-size:12px;cursor:pointer;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tbWin:hover{background:rgba(255,255,255,.1)}
+.tbWin.active{background:rgba(255,255,255,.15);color:#fff}
+.tbWin .ico{margin-right:2px}
+#sysTray{display:flex;align-items:center;gap:6px;padding:0 8px;border-left:1px solid rgba(255,255,255,.1);margin-left:4px;height:28px}
+#sysTray .trayIcon{font-size:14px;cursor:pointer;padding:2px;border-radius:3px}
+#sysTray .trayIcon:hover{background:rgba(255,255,255,.1)}
+#clock{font-size:12px;color:#ddd;text-align:center;padding:0 6px;cursor:pointer;line-height:1.2}
+#clock:hover{background:rgba(255,255,255,.06);border-radius:3px}
+#clock .time{font-weight:500}
+#clock .date{font-size:10px;color:#999}
+
+/* Start Menu */
+#startMenu{position:fixed;bottom:44px;left:0;width:360px;max-height:480px;background:rgba(20,20,30,.95);backdrop-filter:blur(16px);border-radius:8px 8px 0 0;border:1px solid rgba(255,255,255,.1);border-bottom:none;z-index:10000;display:none;overflow:hidden;box-shadow:0 -4px 30px rgba(0,0,0,.5)}
+#startMenu.open{display:flex;flex-direction:column}
+#startHeader{padding:16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,.06)}
+#startHeader .avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#6a11cb,#2575fc);display:flex;align-items:center;justify-content:center;font-size:20px}
+#startHeader .userInfo{flex:1}
+#startHeader .userInfo .name{font-size:14px;font-weight:600}
+#startHeader .userInfo .status{font-size:11px;color:#888}
+#startApps{flex:1;overflow-y:auto;padding:8px 0}
+#startApps::-webkit-scrollbar{width:4px}
+#startApps::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px}
+.startApp{display:flex;align-items:center;gap:12px;padding:8px 20px;cursor:pointer;border:none;background:transparent;color:#ccc;font-size:13px;width:100%;text-align:left}
+.startApp:hover{background:rgba(255,255,255,.08);color:#fff}
+.startApp .ico{font-size:20px;width:28px;text-align:center}
+#startFooter{padding:8px 12px;border-top:1px solid rgba(255,255,255,.06);display:flex}
+#startFooter button{padding:6px 12px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:4px;display:flex;align-items:center;gap:6px;font-size:12px}
+#startFooter button:hover{background:rgba(255,255,255,.08);color:#fff}
+
+/* Windows */
+.window{position:absolute;background:rgba(30,30,45,.95);backdrop-filter:blur(12px);border-radius:8px;border:1px solid rgba(255,255,255,.1);box-shadow:0 8px 40px rgba(0,0,0,.5);display:flex;flex-direction:column;min-width:200px;min-height:100px;z-index:100}
+.window.focused{border-color:rgba(255,255,255,.2)}
+.window.maximized{border-radius:0;top:0!important;left:0!important;width:100%!important;height:calc(100% - 40px)!important}
+.window.minimized{transform:scale(0);opacity:0;pointer-events:none;transition:transform .2s,opacity .2s}
+.window:not(.minimized){transition:transform .15s,opacity .15s}
+.window-titlebar{display:flex;align-items:center;padding:0 8px;height:36px;cursor:default;flex-shrink:0;border-radius:7px 7px 0 0}
+.window.focused .window-titlebar{background:rgba(255,255,255,.04)}
+.window-titlebar .winIcon{font-size:14px;margin-right:8px;width:20px;text-align:center}
+.window-titlebar .winTitle{flex:1;font-size:12px;font-weight:500;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.winBtn{padding:4px 10px;height:28px;border:none;background:transparent;color:#999;cursor:pointer;border-radius:4px;font-size:12px;display:flex;align-items:center;justify-content:center;margin-left:2px}
+.winBtn:hover{background:rgba(255,255,255,.1);color:#fff}
+.winBtn.close:hover{background:#e81123;color:#fff}
+.window-content{flex:1;overflow:auto;padding:0;position:relative;border-radius:0 0 7px 7px}
+.window-content::-webkit-scrollbar{width:6px}
+.window-content::-webkit-scrollbar-track{background:transparent}
+.window-content::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
+.resizeHandle{position:absolute;z-index:10}
+.resizeHandle.n{top:-3px;left:4px;right:4px;height:6px;cursor:n-resize}
+.resizeHandle.s{bottom:-3px;left:4px;right:4px;height:6px;cursor:s-resize}
+.resizeHandle.e{top:4px;bottom:4px;right:-3px;width:6px;cursor:e-resize}
+.resizeHandle.w{top:4px;bottom:4px;left:-3px;width:6px;cursor:w-resize}
+.resizeHandle.ne{top:-3px;right:-3px;width:12px;height:12px;cursor:ne-resize}
+.resizeHandle.nw{top:-3px;left:-3px;width:12px;height:12px;cursor:nw-resize}
+.resizeHandle.se{bottom:-3px;right:-3px;width:12px;height:12px;cursor:se-resize}
+.resizeHandle.sw{bottom:-3px;left:-3px;width:12px;height:12px;cursor:sw-resize}
+
+/* Apps */
+/* Calculator */
+.calc-body{display:flex;flex-direction:column;padding:12px;gap:8px;height:100%}
+.calc-display{background:rgba(0,0,0,.3);border-radius:4px;padding:8px 12px;text-align:right;min-height:48px;display:flex;flex-direction:column;justify-content:flex-end}
+.calc-display .expr{font-size:14px;color:#888;min-height:18px;word-break:break-all}
+.calc-display .result{font-size:28px;font-weight:300;color:#fff;word-break:break-all}
+.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;flex:1}
+.calc-grid button{padding:8px;border:none;border-radius:4px;font-size:16px;cursor:pointer;background:rgba(255,255,255,.08);color:#fff;transition:background .1s}
+.calc-grid button:hover{background:rgba(255,255,255,.15)}
+.calc-grid button:active{background:rgba(255,255,255,.2)}
+.calc-grid button.op{background:rgba(100,100,200,.25)}
+.calc-grid button.op:hover{background:rgba(100,100,200,.4)}
+.calc-grid button.eq{background:rgba(0,120,215,.5)}
+.calc-grid button.eq:hover{background:rgba(0,120,215,.7)}
+.calc-grid button.clr{background:rgba(200,60,60,.3)}
+.calc-grid button.clr:hover{background:rgba(200,60,60,.5)}
+
+/* Notepad */
+.notepad-body{display:flex;flex-direction:column;height:100%}
+.notepad-toolbar{display:flex;gap:2px;padding:4px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.notepad-toolbar button{padding:4px 10px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:12px}
+.notepad-toolbar button:hover{background:rgba(255,255,255,.08);color:#fff}
+.notepad-body textarea{flex:1;border:none;outline:none;padding:10px;font-family:'Cascadia Code','Consolas',monospace;font-size:13px;resize:none;background:rgba(0,0,0,.2);color:#e0e0e0;line-height:1.5;border-radius:0 0 7px 7px}
+.notepad-body textarea::selection{background:rgba(0,120,215,.5)}
+
+/* File Explorer */
+.explorer-body{display:flex;flex-direction:column;height:100%}
+.explorer-toolbar{display:flex;align-items:center;gap:4px;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;flex-wrap:wrap}
+.explorer-toolbar button{padding:4px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:12px;display:flex;align-items:center;gap:4px}
+.explorer-toolbar button:hover{background:rgba(255,255,255,.08);color:#fff}
+.explorer-toolbar .addrBar{flex:1;padding:3px 8px;border:none;border-radius:3px;background:rgba(0,0,0,.3);color:#ddd;font-size:12px;outline:none;min-width:60px}
+.explorer-content{display:flex;flex:1;overflow:hidden}
+.explorer-sidebar{width:160px;padding:4px 0;border-right:1px solid rgba(255,255,255,.06);overflow-y:auto;flex-shrink:0}
+.explorer-sidebar::-webkit-scrollbar{width:4px}
+.explorer-sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:2px}
+.sideItem{display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;color:#aaa;font-size:12px;border:none;background:transparent;width:100%;text-align:left}
+.sideItem:hover{background:rgba(255,255,255,.06);color:#ddd}
+.sideItem.active{background:rgba(255,255,255,.1);color:#fff}
+.explorer-files{flex:1;padding:8px;overflow-y:auto;display:flex;flex-wrap:wrap;align-content:flex-start;gap:4px}
+.explorer-files::-webkit-scrollbar{width:6px}
+.explorer-files::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
+.fileItem{display:flex;flex-direction:column;align-items:center;width:72px;padding:6px 4px;cursor:pointer;border-radius:4px}
+.fileItem:hover{background:rgba(255,255,255,.08)}
+.fileItem .ico{font-size:28px;line-height:1}
+.fileItem .name{font-size:11px;color:#ccc;text-align:center;margin-top:4px;word-break:break-word;line-height:1.2;max-width:68px}
+
+/* About */
+.about-body{display:flex;flex-direction:column;align-items:center;padding:24px;gap:12px;text-align:center}
+.about-body .logo{font-size:48px}
+.about-body h2{font-size:20px;font-weight:600;color:#fff;margin:0}
+.about-body .ver{color:#888;font-size:12px}
+.about-body .desc{color:#aaa;font-size:13px;line-height:1.5;max-width:300px}
+.about-body .copy{color:#666;font-size:11px;margin-top:8px}
+
+/* Right-click context menu */
+#ctxMenu{position:fixed;background:rgba(25,25,40,.97);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:4px 0;z-index:99998;min-width:160px;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+#ctxMenu.open{display:block}
+.ctxItem{display:flex;align-items:center;gap:10px;padding:6px 14px;cursor:pointer;color:#ccc;font-size:12px;border:none;background:transparent;width:100%;text-align:left}
+.ctxItem:hover{background:rgba(255,255,255,.08);color:#fff}
+.ctxItem .shortcut{margin-left:auto;color:#666;font-size:11px}
+.ctxDivider{height:1px;background:rgba(255,255,255,.06);margin:4px 8px}
+
+/* Clock popup */
+#clockPopup{position:fixed;bottom:44px;right:8px;background:rgba(20,20,30,.95);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:16px;z-index:9998;display:none;min-width:200px;text-align:center;box-shadow:0 -4px 30px rgba(0,0,0,.5)}
+#clockPopup.open{display:block}
+#clockPopup .bigTime{font-size:36px;font-weight:200;color:#fff}
+#clockPopup .bigDate{font-size:14px;color:#aaa;margin-top:4px}
+
+/* Notifications / Toast */
+.toast{position:fixed;bottom:50px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);backdrop-filter:blur(8px);color:#fff;padding:8px 20px;border-radius:6px;font-size:13px;z-index:99999;pointer-events:none;animation:toastAnim .3s ease}
+@keyframes toastAnim{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.toast.fade{animation:toastFade .3s ease forwards}
+@keyframes toastFade{from{opacity:1}to{opacity:0;transform:translateX(-50%) translateY(-10px)}}
+
+/* Loading screen */
+#loading{position:fixed;top:0;left:0;right:0;bottom:0;background:#0a0a15;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;transition:opacity .5s}
+#loading.hidden{opacity:0;pointer-events:none}
+#loading .logo{font-size:56px;margin-bottom:16px}
+#loading h1{font-size:24px;font-weight:300;color:#fff;margin-bottom:8px}
+#loading .sub{color:#666;font-size:13px}
+#loading .bar{width:200px;height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:24px;overflow:hidden}
+#loading .barFill{height:100%;width:0%;background:linear-gradient(90deg,#6a11cb,#2575fc);border-radius:2px;transition:width .3s}
+
+/* Animations */
+@keyframes fadeIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.window{animation:fadeIn .2s ease}
+#startMenu.open{animation:slideUp .2s ease}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="logo">⬡</div>
+  <h1>Kilton</h1>
+  <div class="sub">Loading your desktop...</div>
+  <div class="bar"><div class="barFill" id="loadBar"></div></div>
+</div>
+
+<div id="desktop">
+  <canvas id="bgCanvas"></canvas>
+  <div id="desktopIcons"></div>
+</div>
+
+<div id="startMenu">
+  <div id="startHeader">
+    <div class="avatar">🧑</div>
+    <div class="userInfo">
+      <div class="name">User</div>
+      <div class="status">Online</div>
+    </div>
+  </div>
+  <div id="startApps"></div>
+  <div id="startFooter">
+    <button id="powerBtn">⏻ Power</button>
+  </div>
+</div>
+
+<div id="taskbar">
+  <button id="startBtn"><span class="logo">⬡</span> Start</button>
+  <div id="taskbarWindows"></div>
+  <div id="sysTray">
+    <span class="trayIcon">🔊</span>
+    <span class="trayIcon">📶</span>
+    <div id="clock">
+      <div class="time"></div>
+      <div class="date"></div>
+    </div>
+  </div>
+</div>
+
+<div id="ctxMenu"></div>
+<div id="clockPopup">
+  <div class="bigTime" id="popupTime"></div>
+  <div class="bigDate" id="popupDate"></div>
+</div>
+
+<script>
+;(function(){
+'use strict'
+
+// --- State ---
+const STATE = {
+  windows: [],
+  zIndex: 100,
+  winIdCounter: 0,
+  focusedWin: null,
+  startOpen: false,
+  clockOpen: false,
+  nextId: 1,
+  maxId: 0,
+}
+
+// --- Desktop Icons ---
+const DESKTOP_APPS = [
+  { id:'explorer', ico:'📁', label:'File Explorer' },
+  { id:'computer', ico:'💻', label:'Computer' },
+  { id:'calculator',ico:'🔢', label:'Calculator' },
+  { id:'notepad',  ico:'📝', label:'Notepad' },
+  { id:'about',    ico:'⬡', label:'About Kilton' },
+]
+
+// --- App Definitions ---
+const REGISTERED_APPS = {}
+
+// --- Desktop ---
+function initDesktop() {
+  const container = document.getElementById('desktopIcons')
+  container.innerHTML = ''
+  DESKTOP_APPS.forEach(a => {
+    const el = document.createElement('div')
+    el.className = 'deskIcon'
+    el.innerHTML = `<div class="icon">${a.ico}</div><div class="label">${a.label}</div>`
+    el.addEventListener('dblclick', () => launchApp(a.id))
+    container.appendChild(el)
+  })
+  // single click context menu
+  container.addEventListener('contextmenu', e => {
+    e.preventDefault()
+    showContextMenu(e.clientX, e.clientY)
+  })
+}
+
+// --- Background Canvas ---
+function initBgCanvas() {
+  const canvas = document.getElementById('bgCanvas')
+  const ctx = canvas.getContext('2d')
+  let w = canvas.width = window.innerWidth
+  let h = canvas.height = window.innerHeight - 40
+  const stars = Array.from({length:120},()=>({
+    x:Math.random()*w, y:Math.random()*h, r:Math.random()*.8+.3,
+    a:Math.random()*.6+.2, s:Math.random()*.003+.001
+  }))
+  function draw(ts) {
+    ctx.clearRect(0,0,w,h)
+    stars.forEach(s => {
+      s.a = .3 + .4 * Math.sin(ts * s.s + s.x)
+      ctx.beginPath()
+      ctx.arc(s.x,s.y,s.r,0,Math.PI*2)
+      ctx.fillStyle = `rgba(255,255,255,${s.a})`
+      ctx.fill()
+    })
+  }
+  let anim
+  function loop(ts) { draw(ts); anim = requestAnimationFrame(loop) }
+  anim = requestAnimationFrame(loop)
+  window.addEventListener('resize', () => {
+    w = canvas.width = window.innerWidth
+    h = canvas.height = window.innerHeight - 40
+  })
+}
+
+// --- Window Manager ---
+function createWindow(opts) {
+  const id = STATE.winIdCounter++
+  const win = {
+    id,
+    title: opts.title || 'Window',
+    icon: opts.icon || '📄',
+    width: opts.width || 500,
+    height: opts.height || 400,
+    x: opts.x || 100 + (id % 5) * 30,
+    y: opts.y || 40 + (id % 5) * 30,
+    minWidth: opts.minWidth || 250,
+    minHeight: opts.minHeight || 150,
+    content: opts.content || '',
+    onclose: opts.onclose || null,
+    el: null,
+    contentEl: null,
+    state: 'normal', // normal | minimized | maximized
+    prevRect: null,
+  }
+
+  const el = document.createElement('div')
+  el.className = 'window'
+  el.style.width = win.width + 'px'
+  el.style.height = win.height + 'px'
+  el.style.left = win.x + 'px'
+  el.style.top = win.y + 'px'
+  el.style.zIndex = ++STATE.zIndex
+  el.dataset.winId = id
+
+  // Title bar
+  const tb = document.createElement('div')
+  tb.className = 'window-titlebar'
+  tb.innerHTML = `<span class="winIcon">${win.icon}</span><span class="winTitle">${win.title}</span>`
+
+  // Buttons
+  const btnMin = makeBtn('─', () => minimizeWindow(id))
+  const btnMax = makeBtn('☐', () => maximizeWindow(id))
+  const btnClose = makeBtn('✕', () => closeWindow(id))
+  btnClose.className = 'winBtn close'
+  tb.appendChild(btnMin)
+  tb.appendChild(btnMax)
+  tb.appendChild(btnClose)
+  el.appendChild(tb)
+
+  // Content
+  const content = document.createElement('div')
+  content.className = 'window-content'
+  if (typeof win.content === 'string') content.innerHTML = win.content
+  else content.appendChild(win.content)
+  el.appendChild(content)
+
+  // Resize handles
+  const handles = ['n','s','e','w','ne','nw','se','sw']
+  handles.forEach(h => {
+    const r = document.createElement('div')
+    r.className = 'resizeHandle ' + h
+    el.appendChild(r)
+  })
+
+  document.body.appendChild(el)
+
+  win.el = el
+  win.contentEl = content
+
+  // Events
+  el.addEventListener('mousedown', () => focusWindow(id))
+
+  // Drag
+  let drag = false, dragOffX, dragOffY
+  tb.addEventListener('mousedown', e => {
+    if (e.target.closest('.winBtn')) return
+    if (win.state === 'maximized') return
+    drag = true; dragOffX = e.clientX - win.x; dragOffY = e.clientY - win.y
+    e.preventDefault()
+  })
+
+  // Double click title to maximize/restore
+  tb.addEventListener('dblclick', () => {
+    if (win.state === 'maximized') restoreWindow(id)
+    else maximizeWindow(id)
+  })
+
+  // Resize
+  handles.forEach(h => {
+    const r = el.querySelector('.resizeHandle.' + h)
+    r.addEventListener('mousedown', e => {
+      e.stopPropagation()
+      if (win.state === 'maximized') return
+      const startX = e.clientX, startY = e.clientY
+      const startW = win.width, startH = win.height
+      const startL = win.x, startT = win.y
+      function onMove(ev) {
+        const dx = ev.clientX - startX, dy = ev.clientY - startY
+        let nw = startW, nh = startH, nl = startL, nt = startT
+        if (h.includes('e')) nw = Math.max(win.minWidth, startW + dx)
+        if (h.includes('w')) { nw = Math.max(win.minWidth, startW - dx); nl = startL + (startW - nw) }
+        if (h.includes('s')) nh = Math.max(win.minHeight, startH + dy)
+        if (h.includes('n')) { nh = Math.max(win.minHeight, startH - dy); nt = startT + (startH - nh) }
+        win.x = nl; win.y = nt; win.width = nw; win.height = nh
+        el.style.left = nl + 'px'; el.style.top = nt + 'px'
+        el.style.width = nw + 'px'; el.style.height = nh + 'px'
+      }
+      function onUp() { document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp) }
+      document.addEventListener('mousemove',onMove)
+      document.addEventListener('mouseup',onUp)
+      e.preventDefault()
+    })
+  })
+
+  document.addEventListener('mousemove', e => {
+    if (!drag) return
+    win.x = e.clientX - dragOffX; win.y = e.clientY - dragOffY
+    el.style.left = win.x + 'px'; el.style.top = win.y + 'px'
+  })
+  document.addEventListener('mouseup', () => { drag = false })
+
+  focusWindow(id)
+  STATE.windows.push(win)
+  updateTaskbar()
+
+  return win
+}
+
+function makeBtn(label, fn) {
+  const b = document.createElement('button')
+  b.className = 'winBtn'
+  b.textContent = label
+  b.addEventListener('click', fn)
+  return b
+}
+
+function focusWindow(id) {
+  const win = STATE.windows.find(w => w.id === id)
+  if (!win) return
+  STATE.zIndex++
+  win.el.style.zIndex = STATE.zIndex
+  STATE.windows.forEach(w => w.el.classList.remove('focused'))
+  win.el.classList.add('focused')
+  STATE.focusedWin = id
+  updateTaskbar()
+}
+
+function minimizeWindow(id) {
+  const win = STATE.windows.find(w => w.id === id)
+  if (!win) return
+  win.state = 'minimized'
+  win.el.classList.add('minimized')
+  // Find next window to focus
+  const visible = STATE.windows.filter(w => w.state !== 'minimized')
+  if (visible.length > 0) focusWindow(visible[visible.length-1].id)
+  updateTaskbar()
+}
+
+function maximizeWindow(id) {
+  const win = STATE.windows.find(w => w.id === id)
+  if (!win) return
+  if (win.state === 'maximized') { restoreWindow(id); return }
+  win.prevRect = { x: win.x, y: win.y, width: win.width, height: win.height }
+  win.state = 'maximized'
+  win.el.classList.add('maximized')
+  focusWindow(id)
+  updateTaskbar()
+}
+
+function restoreWindow(id) {
+  const win = STATE.windows.find(w => w.id === id)
+  if (!win) return
+  if (win.state === 'minimized') {
+    win.state = 'normal'
+    win.el.classList.remove('minimized')
+    focusWindow(id)
+    updateTaskbar()
+    return
+  }
+  if (win.prevRect) {
+    win.x = win.prevRect.x; win.y = win.prevRect.y
+    win.width = win.prevRect.width; win.height = win.prevRect.height
+    win.el.style.left = win.x + 'px'; win.el.style.top = win.y + 'px'
+    win.el.style.width = win.width + 'px'; win.el.style.height = win.height + 'px'
+  }
+  win.state = 'normal'
+  win.el.classList.remove('maximized')
+  focusWindow(id)
+  updateTaskbar()
+}
+
+function closeWindow(id) {
+  const win = STATE.windows.find(w => w.id === id)
+  if (!win) return
+  if (win.onclose) win.onclose()
+  win.el.remove()
+  STATE.windows = STATE.windows.filter(w => w.id !== id)
+  if (STATE.focusedWin === id) {
+    const last = STATE.windows[STATE.windows.length-1]
+    STATE.focusedWin = last ? last.id : null
+    if (last) last.el.classList.add('focused')
+  }
+  updateTaskbar()
+}
+
+function closeAllWindows() {
+  STATE.windows.slice().forEach(w => closeWindow(w.id))
+}
+
+// --- Taskbar ---
+function updateTaskbar() {
+  const container = document.getElementById('taskbarWindows')
+  container.innerHTML = ''
+  STATE.windows.forEach(win => {
+    const btn = document.createElement('button')
+    btn.className = 'tbWin' + (win.id === STATE.focusedWin ? ' active' : '')
+    btn.innerHTML = `<span class="ico">${win.icon}</span>${win.title}`
+    btn.addEventListener('click', () => {
+      if (win.state === 'minimized') restoreWindow(win.id)
+      else if (win.id === STATE.focusedWin) minimizeWindow(win.id)
+      else focusWindow(win.id)
+    })
+    container.appendChild(btn)
+  })
+}
+
+// --- Start Menu ---
+function toggleStartMenu() {
+  STATE.startOpen = !STATE.startOpen
+  document.getElementById('startMenu').classList.toggle('open', STATE.startOpen)
+  if (STATE.startOpen && STATE.clockOpen) toggleClockPopup()
+}
+
+function initStartMenu() {
+  const appList = [
+    { id:'calculator', ico:'🔢', name:'Calculator' },
+    { id:'notepad',    ico:'📝', name:'Notepad' },
+    { id:'explorer',   ico:'📁', name:'File Explorer' },
+    { id:'computer',   ico:'💻', name:'Computer' },
+    { id:'about',      ico:'⬡', name:'About Kilton' },
+  ]
+  const container = document.getElementById('startApps')
+  container.innerHTML = ''
+  appList.forEach(a => {
+    const btn = document.createElement('button')
+    btn.className = 'startApp'
+    btn.innerHTML = `<span class="ico">${a.ico}</span>${a.name}`
+    btn.addEventListener('click', () => { toggleStartMenu(); launchApp(a.id) })
+    container.appendChild(btn)
+  })
+
+  document.getElementById('powerBtn').addEventListener('click', () => {
+    toggleStartMenu()
+    showToast('Shutting down...')
+    setTimeout(() => {
+      closeAllWindows()
+      showToast('Ready to close tab')
+    }, 500)
+  })
+}
+
+// --- Launch App ---
+function launchApp(id) {
+  if (REGISTERED_APPS[id]) {
+    REGISTERED_APPS[id]()
+    return
+  }
+  // Check if already open, focus it
+  const existing = STATE.windows.find(w => w.title.toLowerCase().includes(id) && w.state !== 'minimized')
+  if (existing) { focusWindow(existing.id); return }
+  const minimized = STATE.windows.find(w => w.title.toLowerCase().includes(id) && w.state === 'minimized')
+  if (minimized) { restoreWindow(minimized.id); return }
+  // Default handlers
+  switch(id) {
+    case 'calculator': launchCalculator(); break
+    case 'notepad': launchNotepad(); break
+    case 'explorer':
+    case 'computer': launchExplorer(); break
+    case 'about': launchAbout(); break
+    default: showToast('App not found: ' + id)
+  }
+}
+
+// --- Calculator ---
+function launchCalculator() {
+  const div = document.createElement('div')
+  div.className = 'calc-body'
+  div.innerHTML = `
+    <div class="calc-display"><div class="expr" id="calcExpr"></div><div class="result" id="calcResult">0</div></div>
+    <div class="calc-grid">
+      <button class="clr" data-v="C">C</button><button data-v="±">±</button><button data-v="%">%</button><button class="op" data-v="÷">÷</button>
+      <button data-v="7">7</button><button data-v="8">8</button><button data-v="9">9</button><button class="op" data-v="×">×</button>
+      <button data-v="4">4</button><button data-v="5">5</button><button data-v="6">6</button><button class="op" data-v="-">−</button>
+      <button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button class="op" data-v="+">+</button>
+      <button data-v="0" style="grid-column:span2">0</button><button data-v=".">.</button><button class="eq" data-v="=">=</button>
+    </div>`
+  const win = createWindow({
+    title:'Calculator', icon:'🔢', width:260, height:340, minWidth:220, minHeight:300, content:div
+  })
+  let expr = '', result = '0', prev = '', op = ''
+  const exprEl = div.querySelector('#calcExpr')
+  const resEl = div.querySelector('#calcResult')
+  function updateDisplay() { resEl.textContent = result; exprEl.textContent = expr }
+  div.querySelectorAll('.calc-grid button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.v
+      if (v === 'C') { expr = ''; result = '0'; prev = ''; op = '' }
+      else if (v === '±') { result = String(-parseFloat(result)) }
+      else if (v === '%') { result = String(parseFloat(result)/100) }
+      else if (['+','-','×','÷'].includes(v)) {
+        if (prev) { compute() }
+        op = v; prev = result; expr = prev + ' ' + v + ' '; result = '0'
+      }
+      else if (v === '=') { if (prev) { compute() }; op = ''; prev = ''; expr = result }
+      else { // number or .
+        if (result === '0' && v !== '.') result = v
+        else if (v === '.' && result.includes('.')) {}
+        else result += v
+      }
+      updateDisplay()
+    })
+  })
+  function compute() {
+    const a = parseFloat(prev), b = parseFloat(result)
+    if (isNaN(a) || isNaN(b)) return
+    let r = 0
+    switch(op) {
+      case '+': r = a + b; break
+      case '-': r = a - b; break
+      case '×': r = a * b; break
+      case '÷': r = b !== 0 ? a / b : 'Error'; break
+    }
+    result = typeof r === 'number' ? String(parseFloat(r.toFixed(10))) : 'Error'
+  }
+}
+
+// --- Notepad ---
+function launchNotepad() {
+  const div = document.createElement('div')
+  div.className = 'notepad-body'
+  div.innerHTML = `
+    <div class="notepad-toolbar">
+      <button data-a="new">📄 New</button>
+      <button data-a="clear">🗑️ Clear</button>
+      <span style="flex:1"></span>
+      <button data-a="info">ℹ️ ${document.querySelectorAll('.notepad-body textarea') ? 'Chars: 0' : ''}</button>
+    </div>
+    <textarea placeholder="Start typing..." spellcheck="false"></textarea>`
+  const win = createWindow({title:'Notepad', icon:'📝', width:520, height:400, minWidth:300, minHeight:200, content:div})
+  const ta = div.querySelector('textarea')
+  ta.addEventListener('input', () => {
+    // Save to localStorage
+    try { localStorage.setItem('kilton_notepad', ta.value) } catch(e) {}
+  })
+  // Restore
+  try { const saved = localStorage.getItem('kilton_notepad'); if (saved) ta.value = saved } catch(e) {}
+  div.querySelectorAll('[data-a]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const a = btn.dataset.a
+      if (a === 'new') { ta.value = ''; try { localStorage.removeItem('kilton_notepad') } catch(e){} }
+      if (a === 'clear') ta.value = ''
+      if (a === 'info') showToast('Chars: ' + ta.value.length)
+    })
+  })
+}
+
+// --- File Explorer ---
+function launchExplorer() {
+  const div = document.createElement('div')
+  div.className = 'explorer-body'
+  const files = generateFakeFiles()
+  div.innerHTML = `
+    <div class="explorer-toolbar">
+      <button data-d="back">◀</button>
+      <button data-d="refresh">⟳</button>
+      <input class="addrBar" value="📁 Desktop" readonly>
+      <button data-d="newFolder">📁 New Folder</button>
+    </div>
+    <div class="explorer-content">
+      <div class="explorer-sidebar">
+        <button class="sideItem active" data-s="desktop"><span>🖥️</span> Desktop</button>
+        <button class="sideItem" data-s="docs"><span>📂</span> Documents</button>
+        <button class="sideItem" data-s="pics"><span>🖼️</span> Pictures</button>
+        <button class="sideItem" data-s="music"><span>🎵</span> Music</button>
+        <button class="sideItem" data-s="downloads"><span>⬇️</span> Downloads</button>
+      </div>
+      <div class="explorer-files" id="explorerFiles"></div>
+    </div>`
+  const win = createWindow({title:'File Explorer', icon:'📁', width:600, height:420, minWidth:350, minHeight:250, content:div})
+
+  const filesEl = div.querySelector('#explorerFiles')
+  function renderFiles() {
+    filesEl.innerHTML = ''
+    files.forEach(f => {
+      const item = document.createElement('div')
+      item.className = 'fileItem'
+      item.innerHTML = `<div class="ico">${f.ico}</div><div class="name">${f.name}</div>`
+      item.addEventListener('dblclick', () => showToast('Opening ' + f.name + '...'))
+      item.addEventListener('contextmenu', e => {
+        e.preventDefault()
+        showContextMenu(e.clientX, e.clientY, f.name)
+      })
+      filesEl.appendChild(item)
+    })
+  }
+  renderFiles()
+
+  div.querySelectorAll('[data-d]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const a = btn.dataset.d
+      if (a === 'back' || a === 'refresh') renderFiles()
+      if (a === 'newFolder') {
+        files.push({name:'New Folder', ico:'📁'})
+        renderFiles()
+        showToast('New folder created')
+      }
+    })
+  })
+  div.querySelectorAll('[data-s]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      div.querySelectorAll('.sideItem').forEach(s => s.classList.remove('active'))
+      btn.classList.add('active')
+      div.querySelector('.addrBar').value = '📁 ' + btn.textContent.trim()
+      renderFiles()
+    })
+  })
+}
+
+function generateFakeFiles() {
+  const folders = [
+    {name:'Projects', ico:'📁'}, {name:'Photos', ico:'📁'}, {name:'Downloads', ico:'📁'},
+    {name:'Documents', ico:'📁'}, {name:'Music', ico:'📁'}, {name:'Videos', ico:'📁'},
+  ]
+  const filesList = [
+    {name:'README.txt', ico:'📄'}, {name:'notes.txt', ico:'📄'},
+    {name:'image.png', ico:'🖼️'}, {name:'photo.jpg', ico:'🖼️'},
+    {name:'song.mp3', ico:'🎵'}, {name:'video.mp4', ico:'🎬'},
+    {name:'archive.zip', ico:'📦'}, {name:'script.js', ico:'📄'},
+    {name:'styles.css', ico:'📄'}, {name:'index.html', ico:'📄'},
+  ]
+  return [...folders, ...filesList]
+}
+
+// --- About ---
+function launchAbout() {
+  const div = document.createElement('div')
+  div.className = 'about-body'
+  div.innerHTML = `
+    <div class="logo">⬡</div>
+    <h2>Kilton OS</h2>
+    <div class="ver">Version 1.0.0</div>
+    <div class="desc">A web-based desktop environment inspired by Windows. Built with HTML, CSS, and JavaScript.</div>
+    <div class="desc" style="font-size:11px;color:#666">© 2026 Kilton. All rights reserved.</div>
+    <div class="copy">Made with ❤️</div>`
+  createWindow({title:'About Kilton', icon:'⬡', width:380, height:300, minWidth:300, minHeight:250, content:div})
+}
+
+// --- Clock ---
+function updateClock() {
+  const now = new Date()
+  const timeStr = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
+  const dateStr = now.toLocaleDateString([], {month:'short',day:'numeric',year:'numeric'})
+  const dayStr = now.toLocaleDateString([], {weekday:'long'})
+  document.querySelector('#clock .time').textContent = timeStr
+  document.querySelector('#clock .date').textContent = dateStr
+  document.getElementById('popupTime').textContent = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})
+  document.getElementById('popupDate').textContent = dayStr + ', ' + dateStr
+}
+
+function toggleClockPopup() {
+  STATE.clockOpen = !STATE.clockOpen
+  document.getElementById('clockPopup').classList.toggle('open', STATE.clockOpen)
+  if (STATE.clockOpen && STATE.startOpen) toggleStartMenu()
+}
+
+// --- Context Menu ---
+function showContextMenu(x, y, file) {
+  const menu = document.getElementById('ctxMenu')
+  menu.innerHTML = ''
+  const items = file ? [
+    {ico:'📂', label:'Open'},
+    {ico:'✂️', label:'Cut'},
+    {ico:'📋', label:'Copy'},
+    {divider:true},
+    {ico:'🗑️', label:'Delete'},
+    {ico:'📛', label:'Rename'},
+  ] : [
+    {ico:'📁', label:'New Folder'},
+    {ico:'📄', label:'New Text Document'},
+    {divider:true},
+    {ico:'🔄', label:'Refresh'},
+    {ico:'🎨', label:'Change Background'},
+    {divider:true},
+    {ico:'⚙️', label:'Settings'},
+  ]
+  items.forEach(item => {
+    if (item.divider) { const d = document.createElement('div'); d.className='ctxDivider'; menu.appendChild(d); return }
+    const btn = document.createElement('button')
+    btn.className = 'ctxItem'
+    btn.innerHTML = `<span>${item.ico}</span>${item.label}`
+    btn.addEventListener('click', () => { menu.classList.remove('open'); showToast(item.label + (file ? ' ' + file : '')) })
+    menu.appendChild(btn)
+  })
+  menu.classList.add('open')
+  menu.style.left = Math.min(x, window.innerWidth - 170) + 'px'
+  menu.style.top = Math.min(y, window.innerHeight - 60 - 40) + 'px'
+}
+
+// --- Toast ---
+function showToast(msg) {
+  const existing = document.querySelector('.toast')
+  if (existing) existing.remove()
+  const t = document.createElement('div')
+  t.className = 'toast'
+  t.textContent = msg
+  document.body.appendChild(t)
+  setTimeout(() => { t.classList.add('fade'); setTimeout(() => t.remove(), 300) }, 2000)
+}
+
+// --- Register built-in apps ---
+REGISTERED_APPS['calculator'] = launchCalculator
+REGISTERED_APPS['notepad'] = launchNotepad
+REGISTERED_APPS['explorer'] = launchExplorer
+REGISTERED_APPS['computer'] = launchExplorer
+REGISTERED_APPS['about'] = launchAbout
+
+// --- Init ---
+function init() {
+  initDesktop()
+  initBgCanvas()
+  initStartMenu()
+  updateClock()
+  setInterval(updateClock, 1000)
+
+  // Start button
+  document.getElementById('startBtn').addEventListener('click', toggleStartMenu)
+
+  // Clock popup
+  document.getElementById('clock').addEventListener('click', toggleClockPopup)
+
+  // Close menus on outside click
+  document.addEventListener('click', e => {
+    if (STATE.startOpen && !e.target.closest('#startMenu') && !e.target.closest('#startBtn')) {
+      STATE.startOpen = false; document.getElementById('startMenu').classList.remove('open')
+    }
+    if (STATE.clockOpen && !e.target.closest('#clockPopup') && !e.target.closest('#clock')) {
+      STATE.clockOpen = false; document.getElementById('clockPopup').classList.remove('open')
+    }
+    if (!e.target.closest('#ctxMenu') && e.button === 0) {
+      document.getElementById('ctxMenu').classList.remove('open')
+    }
+  })
+
+  // Right-click on desktop
+  document.getElementById('desktop').addEventListener('contextmenu', e => {
+    e.preventDefault()
+    showContextMenu(e.clientX, e.clientY)
+  })
+
+  // Double-click on desktop background to open computer
+  document.getElementById('desktop').addEventListener('dblclick', e => {
+    if (e.target === e.currentTarget || e.target.tagName === 'CANVAS') {
+      launchApp('explorer')
+    }
+  })
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      if (STATE.startOpen) { toggleStartMenu() }
+      if (STATE.clockOpen) { toggleClockPopup() }
+      document.getElementById('ctxMenu').classList.remove('open')
+    }
+    if (e.ctrlKey && e.key === 'n') { e.preventDefault(); launchApp('notepad') }
+    if (e.ctrlKey && e.key === 'e') { e.preventDefault(); launchApp('explorer') }
+  })
+
+  // Loading screen
+  const bar = document.getElementById('loadBar')
+  let pct = 0
+  const iv = setInterval(() => {
+    pct += Math.random() * 15 + 5
+    if (pct > 100) pct = 100
+    bar.style.width = pct + '%'
+    if (pct >= 100) {
+      clearInterval(iv)
+      setTimeout(() => {
+        document.getElementById('loading').classList.add('hidden')
+        showToast('Welcome to Kilton OS')
+      }, 300)
+    }
+  }, 100)
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init)
+else init()
+
+})()
+</script>
+</body>
+</html>
