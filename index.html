@@ -882,10 +882,7 @@ function clearSession() {
 function checkSession() {
   try {
     const s = localStorage.getItem(SESSION_KEY)
-    if (s) {
-      const users = getUsers()
-      if (users[s]) { setSession(s); return true }
-    }
+    if (s) { setSession(s); return true }
   } catch(e) {}
   return false
 }
