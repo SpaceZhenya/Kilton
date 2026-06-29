@@ -700,80 +700,153 @@ function launchNotepad() {
 }
 
 // --- File Explorer ---
-function launchExplorer() {
+function launchExplorer(startDir) {
+  initFS()
+  const dir = startDir || 'Desktop'
   const div = document.createElement('div')
   div.className = 'explorer-body'
-  const files = generateFakeFiles()
   div.innerHTML = `
     <div class="explorer-toolbar">
       <button data-d="back">◀</button>
       <button data-d="refresh">⟳</button>
-      <input class="addrBar" value="📁 Desktop" readonly>
+      <input class="addrBar" value="📁 ${dir}" readonly>
+      <button data-d="upload">📤 Upload</button>
+      <input type="file" id="fuInput" multiple style="display:none">
       <button data-d="newFolder">📁 New Folder</button>
     </div>
     <div class="explorer-content">
       <div class="explorer-sidebar">
-        <button class="sideItem active" data-s="desktop"><span>🖥️</span> Desktop</button>
-        <button class="sideItem" data-s="docs"><span>📂</span> Documents</button>
-        <button class="sideItem" data-s="pics"><span>🖼️</span> Pictures</button>
-        <button class="sideItem" data-s="music"><span>🎵</span> Music</button>
-        <button class="sideItem" data-s="downloads"><span>⬇️</span> Downloads</button>
+        <button class="sideItem" data-s="Desktop"><span>🖥️</span> Desktop</button>
+        <button class="sideItem" data-s="Documents"><span>📂</span> Documents</button>
+        <button class="sideItem" data-s="Pictures"><span>🖼️</span> Pictures</button>
+        <button class="sideItem" data-s="Music"><span>🎵</span> Music</button>
+        <button class="sideItem" data-s="Downloads"><span>⬇️</span> Downloads</button>
       </div>
       <div class="explorer-files" id="explorerFiles"></div>
     </div>`
-  const win = createWindow({title:'File Explorer', icon:'📁', width:600, height:420, minWidth:350, minHeight:250, content:div})
-
+  const win = createWindow({title:dir + ' - File Explorer', icon:'📁', width:640, height:440, minWidth:350, minHeight:250, content:div})
   const filesEl = div.querySelector('#explorerFiles')
+  const addrBar = div.querySelector('.addrBar')
+  const fuInput = div.querySelector('#fuInput')
+  let currentDir = dir
+
+  function activateSidebar(name) {
+    div.querySelectorAll('.sideItem').forEach(s => s.classList.remove('active'))
+    const btn = div.querySelector(`.sideItem[data-s="${name}"]`)
+    if (btn) btn.classList.add('active')
+  }
+
   function renderFiles() {
     filesEl.innerHTML = ''
-    files.forEach(f => {
+    const items = listDir(currentDir)
+    if (!items.length) { filesEl.innerHTML = '<div style="color:#666;padding:20px;width:100%;text-align:center">Empty folder</div>'; return }
+    items.forEach(f => {
       const item = document.createElement('div')
       item.className = 'fileItem'
-      item.innerHTML = `<div class="ico">${f.ico}</div><div class="name">${f.name}</div>`
-      item.addEventListener('dblclick', () => showToast('Opening ' + f.name + '...'))
+      const ico = f.type === 'folder' ? '📁' : getFileIcon(f.type, f.name)
+      item.innerHTML = `<div class="ico">${ico}</div><div class="name">${f.name}</div>`
+      item.addEventListener('dblclick', () => {
+        if (f.type === 'folder') { navigateTo(currentDir + '/' + f.name); return }
+        openFile(currentDir, f.name)
+      })
       item.addEventListener('contextmenu', e => {
-        e.preventDefault()
-        showContextMenu(e.clientX, e.clientY, f.name)
+        e.preventDefault(); showFileContextMenu(e.clientX, e.clientY, currentDir, f.name)
       })
       filesEl.appendChild(item)
     })
   }
-  renderFiles()
 
-  div.querySelectorAll('[data-d]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const a = btn.dataset.d
-      if (a === 'back' || a === 'refresh') renderFiles()
-      if (a === 'newFolder') {
-        files.push({name:'New Folder', ico:'📁'})
+  function navigateTo(path) {
+    const parts = path.split('/')
+    currentDir = parts[0]
+    const validDirs = ['Desktop','Documents','Downloads','Pictures','Music']
+    if (!validDirs.includes(currentDir)) { currentDir = 'Desktop'; showToast('Cannot open subfolder yet') }
+    addrBar.value = '📁 ' + currentDir
+    activateSidebar(currentDir)
+    renderFiles()
+  }
+
+  div.querySelector('[data-d="back"]').addEventListener('click', () => { currentDir = 'Desktop'; addrBar.value = '📁 Desktop'; activateSidebar('Desktop'); renderFiles() })
+  div.querySelector('[data-d="refresh"]').addEventListener('click', renderFiles)
+
+  div.querySelector('[data-d="newFolder"]').addEventListener('click', () => {
+    const name = prompt('Folder name:')
+    if (name && name.trim()) { createFolder(currentDir, name.trim()); renderFiles() }
+  })
+
+  div.querySelector('[data-d="upload"]').addEventListener('click', () => fuInput.click())
+
+  fuInput.addEventListener('change', () => {
+    Array.from(fuInput.files).forEach(file => {
+      const reader = new FileReader()
+      reader.onload = e => {
+        const content = file.type.startsWith('text/') || file.type === '' ? e.target.result : '[Binary file: ' + file.name + ']'
+        const type = file.type.startsWith('text/') ? 'text' : 'binary'
+        createFile(currentDir, file.name, type, content)
         renderFiles()
-        showToast('New folder created')
       }
+      reader.readAsText(file)
     })
+    fuInput.value = ''
   })
-  div.querySelectorAll('[data-s]').forEach(btn => {
+
+  div.querySelectorAll('.sideItem').forEach(btn => {
     btn.addEventListener('click', () => {
-      div.querySelectorAll('.sideItem').forEach(s => s.classList.remove('active'))
-      btn.classList.add('active')
-      div.querySelector('.addrBar').value = '📁 ' + btn.textContent.trim()
-      renderFiles()
+      const name = btn.dataset.s
+      currentDir = name; addrBar.value = '📁 ' + name; activateSidebar(name); renderFiles()
     })
   })
+
+  activateSidebar(dir)
+  renderFiles()
 }
 
-function generateFakeFiles() {
-  const folders = [
-    {name:'Projects', ico:'📁'}, {name:'Photos', ico:'📁'}, {name:'Downloads', ico:'📁'},
-    {name:'Documents', ico:'📁'}, {name:'Music', ico:'📁'}, {name:'Videos', ico:'📁'},
+function openFile(dir, name) {
+  const fs = getFS(); const items = fs[dir] || []; const f = items.find(i => i.name === name)
+  if (!f) { showToast('File not found'); return }
+  const ext = name.split('.').pop().toLowerCase()
+  if (f.type === 'text' || ['txt','md','js','py','html','css','json','xml'].includes(ext)) {
+    const ta = document.createElement('textarea')
+    ta.style.cssText = 'width:100%;height:100%;border:none;outline:none;padding:10px;font-family:monospace;font-size:13px;resize:none;background:rgba(0,0,0,.2);color:#e0e0e0;line-height:1.5;tab-size:2'
+    ta.value = f.content || ''
+    ta.addEventListener('input', () => { f.content = ta.value; f.size = ta.value.length; f.modified = new Date().toISOString(); saveFS(fs) })
+    createWindow({title:name + ' - Editor', icon:getFileIcon(f.type, name), width:520, height:400, minWidth:300, minHeight:200, content:ta})
+  } else if (['jpg','jpeg','png','gif','svg','ico'].includes(ext) && f.content && f.content.startsWith('data:')) {
+    const img = document.createElement('img'); img.src = f.content; img.style.cssText = 'max-width:100%;max-height:100%;display:block;margin:auto'
+    const c = document.createElement('div'); c.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;padding:10px'; c.appendChild(img)
+    createWindow({title:name, icon:'🖼️', width:500, height:400, content:c})
+  } else {
+    showToast('Opening ' + name + ' (' + formatSize(f.size) + ')')
+  }
+}
+
+function showFileContextMenu(x, y, dir, fileName) {
+  const menu = document.getElementById('ctxMenu')
+  menu.innerHTML = ''
+  const items = [
+    {ico:'📂', label:'Open', fn:() => openFile(dir, fileName)},
+    {ico:'📋', label:'Copy'},
+    {ico:'✂️', label:'Cut'},
+    {divider:true},
+    {ico:'📛', label:'Rename', fn:() => {
+      const newName = prompt('Rename to:', fileName)
+      if (newName && newName.trim() && newName.trim() !== fileName) { renameItem(dir, fileName, newName.trim()); refreshAllExplorers() }
+    }},
+    {ico:'🗑️', label:'Delete', fn:() => {
+      if (confirm('Delete ' + fileName + '?')) { deleteItem(dir, fileName); refreshAllExplorers() }
+    }},
+    {divider:true},
+    {ico:'ℹ️', label:'Properties'},
   ]
-  const filesList = [
-    {name:'README.txt', ico:'📄'}, {name:'notes.txt', ico:'📄'},
-    {name:'image.png', ico:'🖼️'}, {name:'photo.jpg', ico:'🖼️'},
-    {name:'song.mp3', ico:'🎵'}, {name:'video.mp4', ico:'🎬'},
-    {name:'archive.zip', ico:'📦'}, {name:'script.js', ico:'📄'},
-    {name:'styles.css', ico:'📄'}, {name:'index.html', ico:'📄'},
-  ]
-  return [...folders, ...filesList]
+  renderContextMenu(menu, items)
+  positionContextMenu(menu, x, y)
+}
+
+function refreshAllExplorers() {
+  STATE.windows.filter(w => w.title.includes('File Explorer') || w.title.includes(' - Explorer') || w.title.includes(' - Editor')).forEach(w => {
+    const content = w.el.querySelector('.window-content')
+    if (content) { const btn = content.querySelector('[data-d="refresh"]'); if (btn) btn.click() }
+  })
 }
 
 // --- About ---
@@ -809,36 +882,43 @@ function toggleClockPopup() {
 }
 
 // --- Context Menu ---
-function showContextMenu(x, y, file) {
-  const menu = document.getElementById('ctxMenu')
+function renderContextMenu(menu, items) {
   menu.innerHTML = ''
-  const items = file ? [
-    {ico:'📂', label:'Open'},
-    {ico:'✂️', label:'Cut'},
-    {ico:'📋', label:'Copy'},
-    {divider:true},
-    {ico:'🗑️', label:'Delete'},
-    {ico:'📛', label:'Rename'},
-  ] : [
-    {ico:'📁', label:'New Folder'},
-    {ico:'📄', label:'New Text Document'},
-    {divider:true},
-    {ico:'🔄', label:'Refresh'},
-    {ico:'🎨', label:'Change Background'},
-    {divider:true},
-    {ico:'⚙️', label:'Settings'},
-  ]
   items.forEach(item => {
     if (item.divider) { const d = document.createElement('div'); d.className='ctxDivider'; menu.appendChild(d); return }
     const btn = document.createElement('button')
     btn.className = 'ctxItem'
     btn.innerHTML = `<span>${item.ico}</span>${item.label}`
-    btn.addEventListener('click', () => { menu.classList.remove('open'); showToast(item.label + (file ? ' ' + file : '')) })
+    if (item.shortcut) btn.innerHTML += `<span class="shortcut">${item.shortcut}</span>`
+    btn.addEventListener('click', e => { e.stopPropagation(); menu.classList.remove('open'); if (item.fn) item.fn() })
     menu.appendChild(btn)
   })
+}
+
+function positionContextMenu(menu, x, y) {
   menu.classList.add('open')
   menu.style.left = Math.min(x, window.innerWidth - 170) + 'px'
   menu.style.top = Math.min(y, window.innerHeight - 60 - 40) + 'px'
+}
+
+function showContextMenu(x, y) {
+  const menu = document.getElementById('ctxMenu')
+  const items = [
+    {ico:'📁', label:'New Folder', fn:() => {
+      const name = prompt('Folder name:')
+      if (name && name.trim()) { createFolder('Desktop', name.trim()); showToast('Folder created') }
+    }},
+    {ico:'📄', label:'New Text Document', fn:() => {
+      createFile('Desktop', 'New Document.txt', 'text', ''); showToast('File created')
+    }},
+    {divider:true},
+    {ico:'🔄', label:'Refresh'},
+    {ico:'🎨', label:'Change Background', fn:() => showToast('Background change coming soon')},
+    {divider:true},
+    {ico:'⚙️', label:'Settings', fn:() => showToast('Settings coming soon')},
+  ]
+  renderContextMenu(menu, items)
+  positionContextMenu(menu, x, y)
 }
 
 // --- Toast ---
@@ -951,6 +1031,62 @@ function initAuth() {
   }
 }
 
+// --- Virtual File System ---
+function getFSKey() { return 'kilton_fs_' + (currentUser || 'default') }
+
+function getDefaultFS() {
+  return { 'Desktop': [], 'Documents': [], 'Downloads': [], 'Pictures': [], 'Music': [] }
+}
+
+function initFS() {
+  try { if (!localStorage.getItem(getFSKey())) saveFS(getDefaultFS()) } catch(e) {}
+}
+
+function getFS() {
+  try { return JSON.parse(localStorage.getItem(getFSKey())) || getDefaultFS() } catch(e) { return getDefaultFS() }
+}
+
+function saveFS(fs) {
+  try { localStorage.setItem(getFSKey(), JSON.stringify(fs)) } catch(e) {}
+}
+
+function listDir(dir) { const fs = getFS(); return fs[dir] || [] }
+
+function createFile(dir, name, type, content) {
+  const fs = getFS(); if (!fs[dir]) fs[dir] = []
+  if (fs[dir].some(f => f.name === name)) { showToast('Already exists'); return false }
+  fs[dir].push({ name, type: type || 'text', content: content || '', size: (content||'').length, modified: new Date().toISOString() })
+  saveFS(fs); return true
+}
+
+function createFolder(dir, name) {
+  const fs = getFS(); if (!fs[dir]) fs[dir] = []
+  if (fs[dir].some(f => f.name === name)) { showToast('Already exists'); return false }
+  fs[dir].push({ name, type: 'folder', content: '', size: 0, modified: new Date().toISOString() })
+  saveFS(fs); return true
+}
+
+function deleteItem(dir, name) {
+  const fs = getFS(); if (!fs[dir]) return false
+  fs[dir] = fs[dir].filter(f => f.name !== name); saveFS(fs); return true
+}
+
+function renameItem(dir, oldName, newName) {
+  const fs = getFS(); if (!fs[dir]) return false
+  const item = fs[dir].find(f => f.name === oldName); if (!item) return false
+  if (fs[dir].some(f => f.name === newName && f !== item)) { showToast('Name taken'); return false }
+  item.name = newName; item.modified = new Date().toISOString(); saveFS(fs); return true
+}
+
+function getFileIcon(type, name) {
+  if (type === 'folder') return '📁'
+  const ext = (name||'').split('.').pop().toLowerCase()
+  const m = { txt:'📄',md:'📄',js:'📄',py:'🐍',html:'🌐',css:'🎨',json:'📋',xml:'📋',jpg:'🖼️',jpeg:'🖼️',png:'🖼️',gif:'🖼️',svg:'🖼️',ico:'🖼️',mp3:'🎵',wav:'🎵',ogg:'🎵',mp4:'🎬',avi:'🎬',mkv:'🎬',zip:'📦',rar:'📦',exe:'⚙️',app:'📦',pdf:'📕',doc:'📘',docx:'📘',xls:'📊',xlsx:'📊' }
+  return m[ext] || '📄'
+}
+
+function formatSize(bytes) { if (!bytes) return ''; if (bytes < 1024) return bytes + ' B'; if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB'; return (bytes/1048576).toFixed(1) + ' MB' }
+
 // --- Register built-in apps ---
 REGISTERED_APPS['calculator'] = launchCalculator
 REGISTERED_APPS['notepad'] = launchNotepad
@@ -964,6 +1100,7 @@ function startDesktop() {
   const loadEl = document.getElementById('loading')
   loadEl.classList.remove('hidden')
 
+  initFS()
   initDesktop()
   initBgCanvas()
   initStartMenu()
