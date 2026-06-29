@@ -162,6 +162,21 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',Tahoma,s
 .mkcard .btn.uninstall{background:rgba(200,60,60,.3);color:#faa}
 .mkcard .btn.uninstall:hover{background:rgba(200,60,60,.5)}
 
+/* AI Chat */
+.chat-body{display:flex;flex-direction:column;height:100%}
+.chat-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.chat-msgs::-webkit-scrollbar{width:5px}
+.chat-msgs::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
+.chat-msg{max-width:85%;padding:8px 12px;border-radius:8px;font-size:13px;line-height:1.5;animation:fadeIn .2s ease;word-wrap:break-word}
+.chat-msg.user{background:rgba(0,120,215,.3);align-self:flex-end;border-radius:8px 8px 2px 8px}
+.chat-msg.ai{background:rgba(255,255,255,.06);align-self:flex-start;border-radius:8px 8px 8px 2px}
+.chat-msg .time{font-size:10px;color:#666;margin-top:4px;text-align:right}
+.chat-input-area{display:flex;align-items:center;gap:6px;padding:8px 10px;border-top:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.chat-input-area input{flex:1;padding:8px 12px;border:none;border-radius:20px;background:rgba(255,255,255,.06);color:#fff;font-size:13px;outline:none}
+.chat-input-area input::placeholder{color:#555}
+.chat-input-area button{padding:8px 14px;border:none;border-radius:20px;background:linear-gradient(135deg,#6a11cb,#2575fc);color:#fff;cursor:pointer;font-size:13px}
+.chat-input-area button:hover{opacity:.85}
+
 /* Right-click context menu */
 #ctxMenu{position:fixed;background:rgba(25,25,40,.97);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:4px 0;z-index:99998;min-width:160px;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 #ctxMenu.open{display:block}
@@ -331,6 +346,7 @@ const REGISTERED_APPS = {}
 
 const BUILT_IN_APPS = [
   { id:'market',   ico:'🛒', label:'Kilton Market' },
+  { id:'ai',       ico:'🤖', label:'Kilton AI' },
   { id:'browser',  ico:'🌐', label:'Browser' },
   { id:'explorer', ico:'📁', label:'File Explorer' },
   { id:'computer', ico:'💻', label:'Computer' },
@@ -1155,6 +1171,146 @@ function launchBrowser(url) {
   setTimeout(checkFallback, 1500)
 }
 
+// --- Kilton AI ---
+function launchAI() {
+  const div = document.createElement('div')
+  div.className = 'chat-body'
+  div.innerHTML = `
+    <div style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:8px;flex-shrink:0">
+      <span style="font-size:18px">🤖</span>
+      <span style="font-weight:500;font-size:13px">Kilton AI</span>
+      <span style="color:#666;font-size:11px">Assistant</span>
+      <span style="flex:1"></span>
+      <span style="font-size:10px;color:#444">${MARKET_APPS.length} apps available</span>
+    </div>
+    <div class="chat-msgs" id="chatMessages"></div>
+    <div class="chat-input-area">
+      <input id="chatInput" placeholder="Ask me anything..." spellcheck="false">
+      <button id="chatSend">Send</button>
+    </div>`
+  createWindow({title:'Kilton AI', icon:'🤖', width:440, height:520, minWidth:320, minHeight:350, content:div})
+
+  const msgsEl = div.querySelector('#chatMessages')
+  const inputEl = div.querySelector('#chatInput')
+  const sendBtn = div.querySelector('#chatSend')
+
+  function addMsg(role, text) {
+    const now = new Date()
+    const t = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
+    const el = document.createElement('div')
+    el.className = 'chat-msg ' + role
+    el.innerHTML = text.replace(/\n/g, '<br>') + `<div class="time">${t}</div>`
+    msgsEl.appendChild(el)
+    msgsEl.scrollTop = msgsEl.scrollHeight
+  }
+
+  function aiRespond(input) {
+    const lower = input.toLowerCase().trim()
+
+    // System commands
+    if (lower.includes('open ') || lower.includes('launch ') || lower.includes('start ')) {
+      const targets = { browser:'🌐', market:'🛒', explorer:'📁', calculator:'🔢', notepad:'📝', about:'⬡', ai:'🤖', computer:'💻', file:'📁', files:'📁' }
+      for (const [key, ico] of Object.entries(targets)) {
+        if (lower.includes(key) && key !== 'files') {
+          const appId = key === 'file' ? 'explorer' : key
+          try { launchApp(appId); return `Opening **${key}**...<br><span style="color:#888;font-size:11px">${ico} ${key}</span>` } catch(e) { break }
+        }
+      }
+    }
+
+    if (lower.includes('hello') || lower.includes('hi ') || lower === 'hi' || lower === 'hey') {
+      const greets = ["Hello! I'm Kilton AI. How can I help?", "Hi there! Ready to assist.", "Hey! What can I do for you?", "Hello! Try asking me to open an app or tell you the time."]
+      return greets[Math.floor(Math.random() * greets.length)]
+    }
+
+    if (lower.includes('who are you') || lower.includes('what are you') || lower.includes('your name')) {
+      return "I'm **Kilton AI**, your built-in assistant for Kilton OS.<br><br>I can help you open apps, create files, check the time, and more. Try typing `help` to see what I can do!"
+    }
+
+    if (lower.includes('time') || lower.includes('clock')) {
+      const now = new Date()
+      return 'The current time is **' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}) + '**'
+    }
+
+    if (lower.includes('date') || lower.includes('today')) {
+      const now = new Date()
+      return "Today is **" + now.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric',year:'numeric'}) + '**'
+    }
+
+    if (lower.includes('create file') || lower.includes('new file')) {
+      const name = input.replace(/create file|new file/gi, '').trim() || 'ai_note.txt'
+      try {
+        createFile('Desktop', name, 'text', 'Created by Kilton AI at ' + new Date().toLocaleString())
+        return '✅ Created **' + name + '** on your Desktop.'
+      } catch(e) { return 'Could not create file.' }
+    }
+
+    if (lower.includes('create folder') || lower.includes('new folder') || lower.includes('mkdir')) {
+      const name = input.replace(/create folder|new folder|mkdir/gi, '').trim() || 'New Folder'
+      try {
+        createFolder('Desktop', name)
+        return '✅ Created folder **' + name + '** on your Desktop.'
+      } catch(e) { return 'Could not create folder.' }
+    }
+
+    if (lower.includes('installed') || lower.includes('my apps')) {
+      const ids = getInstalledIds()
+      if (!ids.length) return "You haven't installed any apps yet. Open 🛒 **Kilton Market** to browse available apps!"
+      const names = ids.map(id => { const a = MARKET_APPS.find(m => m.id === id); return a ? a.ico + ' ' + a.label : id }).join('<br>')
+      return 'Your installed apps:<br>' + names
+    }
+
+    if (lower === 'help' || lower.includes('help') || lower === '?') {
+      return "I can help with:<br><br>• `open [app]` — launch an app (browser, market, calculator, notepad, explorer)<br>• `time` / `date` — current time and date<br>• `create file [name]` — make a new file<br>• `create folder [name]` — make a new folder<br>• `my apps` — list installed apps<br>• `joke` — tell a joke<br>• `hello` / `hi` — basic chat"
+    }
+
+    if (lower.includes('joke') || lower.includes('funny')) {
+      const jokes = [
+        "Why do programmers prefer dark mode? Because light attracts bugs!",
+        "What do you call a fake noodle? An **impasta**!",
+        "Why did the developer go broke? Because he used up all his cache!",
+        "I told my computer I needed a break. Now it won't stop sending me vacation ads.",
+        "Why was the JavaScript developer sad? Because he didn't know how to `null` his feelings."
+      ]
+      return jokes[Math.floor(Math.random() * jokes.length)]
+    }
+
+    if (lower.includes('thank')) {
+      return "You're welcome! 😊 Let me know if you need anything else."
+    }
+
+    if (lower.includes('weather')) {
+      return "I don't have access to live weather data yet, but you can install the **Weather** app from 🛒 Kilton Market!"
+    }
+
+    // Fallback
+    const fallbacks = [
+      "I'm not sure I understand. Try `help` to see what I can do!",
+      "Hmm, I don't know how to respond to that. Type `help` for available commands.",
+      "I'm still learning! Try `help` to see my capabilities.",
+      "Not sure about that one. Here are some things I CAN do: `help`"
+    ]
+    return fallbacks[Math.floor(Math.random() * fallbacks.length)]
+  }
+
+  addMsg('ai', "Hello! I'm **Kilton AI**, your personal assistant. Try asking me to open an app, tell the time, or type `help` for more.")
+
+  function handleSend() {
+    const text = inputEl.value.trim()
+    if (!text) return
+    addMsg('user', text)
+    inputEl.value = ''
+    setTimeout(() => {
+      const resp = aiRespond(text)
+      addMsg('ai', resp)
+    }, 300 + Math.random() * 400)
+  }
+
+  sendBtn.addEventListener('click', handleSend)
+  inputEl.addEventListener('keydown', e => { if (e.key === 'Enter') handleSend() })
+  inputEl.focus()
+}
+
 // --- Clock ---
 function updateClock() {
   const now = new Date()
@@ -1381,6 +1537,7 @@ function formatSize(bytes) { if (!bytes) return ''; if (bytes < 1024) return byt
 
 // --- Register built-in apps ---
 REGISTERED_APPS['market'] = launchMarket
+REGISTERED_APPS['ai'] = launchAI
 REGISTERED_APPS['calculator'] = launchCalculator
 REGISTERED_APPS['notepad'] = launchNotepad
 REGISTERED_APPS['explorer'] = launchExplorer
@@ -1442,6 +1599,7 @@ function startDesktop() {
     }
     if (e.ctrlKey && e.key === 'n') { e.preventDefault(); launchApp('notepad') }
     if (e.ctrlKey && e.key === 'e') { e.preventDefault(); launchApp('explorer') }
+    if (e.ctrlKey && e.shiftKey && e.key === 'A') { e.preventDefault(); launchApp('ai') }
   })
 
   // Loading animation
