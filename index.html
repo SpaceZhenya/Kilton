@@ -191,13 +191,6 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',Tahoma,s
 </head>
 <body>
 
-<div id="loading">
-  <div class="logo">⬡</div>
-  <h1>Kilton</h1>
-  <div class="sub">Loading your desktop...</div>
-  <div class="bar"><div class="barFill" id="loadBar"></div></div>
-</div>
-
 <div id="loginScreen">
   <div id="loginBox">
     <div class="logo">⬡</div>
@@ -210,6 +203,13 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',Tahoma,s
     <button class="btn" id="loginBtn">Sign In</button>
     <div class="toggle" id="loginToggle">Don't have an account? Create one</div>
   </div>
+</div>
+
+<div id="loading" class="hidden">
+  <div class="logo">⬡</div>
+  <h1>Kilton</h1>
+  <div class="sub">Loading your desktop...</div>
+  <div class="bar"><div class="barFill" id="loadBar"></div></div>
 </div>
 
 <div id="desktop">
@@ -948,6 +948,7 @@ function initAuth() {
     screen.classList.add('hidden')
     startDesktop()
   } else {
+    // Make sure login is visible
     screen.classList.remove('hidden')
     userField.focus()
   }
@@ -962,6 +963,10 @@ REGISTERED_APPS['about'] = launchAbout
 
 // --- Desktop Start (after auth) ---
 function startDesktop() {
+  // Show loading overlay
+  const loadEl = document.getElementById('loading')
+  loadEl.classList.remove('hidden')
+
   initDesktop()
   initBgCanvas()
   initStartMenu()
@@ -1011,7 +1016,7 @@ function startDesktop() {
     if (e.ctrlKey && e.key === 'e') { e.preventDefault(); launchApp('explorer') }
   })
 
-  // Loading screen
+  // Loading animation
   const bar = document.getElementById('loadBar')
   let pct = 0
   const iv = setInterval(() => {
@@ -1021,8 +1026,8 @@ function startDesktop() {
     if (pct >= 100) {
       clearInterval(iv)
       setTimeout(() => {
-        document.getElementById('loading').classList.add('hidden')
-        showToast('Welcome to Kilton OS')
+        loadEl.classList.add('hidden')
+        showToast('Welcome, ' + currentUser)
       }, 300)
     }
   }, 100)
