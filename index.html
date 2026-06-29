@@ -135,6 +135,33 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',Tahoma,s
 .about-body .desc{color:#aaa;font-size:13px;line-height:1.5;max-width:300px}
 .about-body .copy{color:#666;font-size:11px;margin-top:8px}
 
+/* Market */
+.market-body{display:flex;flex-direction:column;height:100%;overflow:hidden}
+.market-header{padding:16px 20px 8px;flex-shrink:0}
+.market-header h2{font-size:20px;font-weight:600;margin:0 0 4px}
+.market-header .sub{color:#888;font-size:12px}
+.market-tabs{display:flex;gap:2px;padding:0 16px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.mktab{padding:8px 14px;border:none;background:transparent;color:#888;cursor:pointer;font-size:12px;border-radius:4px 4px 0 0}
+.mktab:hover{color:#ddd;background:rgba(255,255,255,.04)}
+.mktab.active{color:#fff;background:rgba(255,255,255,.08)}
+.market-grid{flex:1;overflow-y:auto;padding:12px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;align-content:start}
+.market-grid::-webkit-scrollbar{width:5px}
+.market-grid::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
+.mkcard{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:12px;cursor:default;transition:background .15s}
+.mkcard:hover{background:rgba(255,255,255,.08)}
+.mkcard .top{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.mkcard .top .ico{font-size:28px;width:36px;text-align:center}
+.mkcard .top .info{flex:1}
+.mkcard .top .info .name{font-size:13px;font-weight:500;color:#fff}
+.mkcard .top .info .dev{font-size:10px;color:#666}
+.mkcard .desc{font-size:11px;color:#999;line-height:1.4;margin-bottom:8px}
+.mkcard .btn{width:100%;padding:5px;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500;transition:background .15s}
+.mkcard .btn.install{background:rgba(0,120,215,.5);color:#fff}
+.mkcard .btn.install:hover{background:rgba(0,120,215,.7)}
+.mkcard .btn.installed{background:rgba(80,80,80,.3);color:#666;cursor:default}
+.mkcard .btn.uninstall{background:rgba(200,60,60,.3);color:#faa}
+.mkcard .btn.uninstall:hover{background:rgba(200,60,60,.5)}
+
 /* Right-click context menu */
 #ctxMenu{position:fixed;background:rgba(25,25,40,.97);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:4px 0;z-index:99998;min-width:160px;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 #ctxMenu.open{display:block}
@@ -268,9 +295,13 @@ const STATE = {
   maxId: 0,
 }
 
-// --- Desktop Icons ---
-const DESKTOP_APPS = [
-  { id:'browser', ico:'🌐', label:'Browser' },
+// --- App Management ---
+const INSTALLED_KEY = 'kilton_installed'
+const REGISTERED_APPS = {}
+
+const BUILT_IN_APPS = [
+  { id:'market',   ico:'🛒', label:'Kilton Market' },
+  { id:'browser',  ico:'🌐', label:'Browser' },
   { id:'explorer', ico:'📁', label:'File Explorer' },
   { id:'computer', ico:'💻', label:'Computer' },
   { id:'calculator',ico:'🔢', label:'Calculator' },
@@ -278,21 +309,72 @@ const DESKTOP_APPS = [
   { id:'about',    ico:'⬡', label:'About Kilton' },
 ]
 
-// --- App Definitions ---
-const REGISTERED_APPS = {}
+const MARKET_APPS = [
+  { id:'snake',    ico:'🐍', label:'Snake Game',     desc:'Classic snake arcade game',  cat:'Games',   dev:'Kilton' },
+  { id:'tetris',   ico:'🧱', label:'Tetris',          desc:'Stack blocks and clear lines',cat:'Games',   dev:'Kilton' },
+  { id:'paint',    ico:'🎨', label:'Kilton Paint',    desc:'Simple drawing application',  cat:'Tools',   dev:'Kilton' },
+  { id:'terminal', ico:'💻', label:'Terminal',        desc:'Command line interface',      cat:'Tools',   dev:'Kilton' },
+  { id:'weather',  ico:'🌤️', label:'Weather',         desc:'Check the weather forecast',  cat:'Utility', dev:'OpenWeather' },
+  { id:'maps',     ico:'🗺️', label:'Maps',            desc:'Browse world maps',           cat:'Utility', dev:'OpenStreetMap' },
+  { id:'music',    ico:'🎵', label:'Music Player',    desc:'Play your uploaded music',    cat:'Media',   dev:'Kilton' },
+  { id:'chat',     ico:'💬', label:'Kilton Chat',     desc:'Local messaging app',         cat:'Social',  dev:'Kilton' },
+  { id:'settings', ico:'⚙️', label:'Settings',        desc:'System preferences',          cat:'System',  dev:'Kilton' },
+]
+
+function getInstalledIds() {
+  try { return JSON.parse(localStorage.getItem(INSTALLED_KEY)) || [] } catch(e) { return [] }
+}
+
+function saveInstalledIds(ids) {
+  try { localStorage.setItem(INSTALLED_KEY, JSON.stringify(ids)) } catch(e) {}
+}
+
+function isInstalled(id) { return getInstalledIds().includes(id) }
+
+function installApp(id) {
+  const ids = getInstalledIds()
+  if (!ids.includes(id)) { ids.push(id); saveInstalledIds(ids); rebuildDesktop(); showToast('Installed!') }
+}
+
+function uninstallApp(id) {
+  const ids = getInstalledIds().filter(i => i !== id)
+  saveInstalledIds(ids); rebuildDesktop(); showToast('Uninstalled')
+}
+
+function getAllDesktopApps() {
+  const builtIn = BUILT_IN_APPS.map(a => ({ id:a.id, ico:a.ico, label:a.label }))
+  const installed = getInstalledIds().map(id => {
+    const m = MARKET_APPS.find(a => a.id === id)
+    return m ? { id:m.id, ico:m.ico, label:m.label } : null
+  }).filter(Boolean)
+  return [...builtIn, ...installed]
+}
+
+function getAllStartApps() {
+  const builtIn = BUILT_IN_APPS.map(a => ({ id:a.id, ico:a.ico, name:a.label }))
+  const installed = getInstalledIds().map(id => {
+    const m = MARKET_APPS.find(a => a.id === id)
+    return m ? { id:m.id, ico:m.ico, name:m.label } : null
+  }).filter(Boolean)
+  return [...builtIn, ...installed]
+}
+
+function rebuildDesktop() {
+  initDesktop()
+  initStartMenu()
+}
 
 // --- Desktop ---
 function initDesktop() {
   const container = document.getElementById('desktopIcons')
   container.innerHTML = ''
-  DESKTOP_APPS.forEach(a => {
+  getAllDesktopApps().forEach(a => {
     const el = document.createElement('div')
     el.className = 'deskIcon'
     el.innerHTML = `<div class="icon">${a.ico}</div><div class="label">${a.label}</div>`
     el.addEventListener('dblclick', () => launchApp(a.id))
     container.appendChild(el)
   })
-  // single click context menu
   container.addEventListener('contextmenu', e => {
     e.preventDefault()
     showContextMenu(e.clientX, e.clientY)
@@ -558,17 +640,9 @@ function toggleStartMenu() {
 }
 
 function initStartMenu() {
-  const appList = [
-    { id:'browser',   ico:'🌐', name:'Browser' },
-    { id:'calculator',ico:'🔢', name:'Calculator' },
-    { id:'notepad',   ico:'📝', name:'Notepad' },
-    { id:'explorer',  ico:'📁', name:'File Explorer' },
-    { id:'computer',  ico:'💻', name:'Computer' },
-    { id:'about',     ico:'⬡', name:'About Kilton' },
-  ]
   const container = document.getElementById('startApps')
   container.innerHTML = ''
-  appList.forEach(a => {
+  getAllStartApps().forEach(a => {
     const btn = document.createElement('button')
     btn.className = 'startApp'
     btn.innerHTML = `<span class="ico">${a.ico}</span>${a.name}`
@@ -607,6 +681,14 @@ function launchApp(id) {
   if (existing) { focusWindow(existing.id); return }
   const minimized = STATE.windows.find(w => w.title.toLowerCase().includes(id) && w.state === 'minimized')
   if (minimized) { restoreWindow(minimized.id); return }
+  // Check if it's an installed market app
+  const marketApp = MARKET_APPS.find(a => a.id === id && isInstalled(id))
+  if (marketApp) {
+    const d = document.createElement('div'); d.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:40px;gap:16px;text-align:center'
+    d.innerHTML = `<div style="font-size:48px">${marketApp.ico}</div><div style="font-size:18px;font-weight:500;color:#fff">${marketApp.label}</div><div style="color:#888;font-size:13px;max-width:300px;line-height:1.5">${marketApp.desc}</div><div style="color:#555;font-size:11px">by ${marketApp.dev} · ${marketApp.cat}</div>`
+    createWindow({title:marketApp.label, icon:marketApp.ico, width:360, height:260, minWidth:280, minHeight:200, content:d})
+    return
+  }
   // Default handlers
   switch(id) {
     case 'calculator': launchCalculator(); break
@@ -870,6 +952,66 @@ function launchAbout() {
     <div class="desc" style="font-size:11px;color:#666">© 2026 Kilton. All rights reserved.</div>
     <div class="copy">Made with ❤️</div>`
   createWindow({title:'About Kilton', icon:'⬡', width:380, height:300, minWidth:300, minHeight:250, content:div})
+}
+
+// --- Market ---
+function launchMarket() {
+  const div = document.createElement('div')
+  div.className = 'market-body'
+  div.innerHTML = `
+    <div class="market-header">
+      <h2>🛒 Kilton Market</h2>
+      <div class="sub">Discover and install apps for your desktop</div>
+    </div>
+    <div class="market-tabs" id="marketTabs">
+      <button class="mktab active" data-cat="all">All</button>
+      <button class="mktab" data-cat="Games">🎮 Games</button>
+      <button class="mktab" data-cat="Tools">🔧 Tools</button>
+      <button class="mktab" data-cat="Utility">📱 Utility</button>
+      <button class="mktab" data-cat="Media">🎵 Media</button>
+      <button class="mktab" data-cat="Social">💬 Social</button>
+      <button class="mktab" data-cat="System">⚙️ System</button>
+    </div>
+    <div class="market-grid" id="marketGrid"></div>`
+  createWindow({title:'Kilton Market', icon:'🛒', width:620, height:480, minWidth:400, minHeight:350, content:div})
+
+  const grid = div.querySelector('#marketGrid')
+  const tabs = div.querySelectorAll('.mktab')
+  let currentCat = 'all'
+
+  function renderMarket() {
+    grid.innerHTML = ''
+    const apps = currentCat === 'all' ? MARKET_APPS : MARKET_APPS.filter(a => a.cat === currentCat)
+    if (!apps.length) { grid.innerHTML = '<div style="color:#666;padding:40px;text-align:center;width:100%">No apps in this category</div>'; return }
+    apps.forEach(a => {
+      const installed = isInstalled(a.id)
+      const card = document.createElement('div')
+      card.className = 'mkcard'
+      card.innerHTML = `
+        <div class="top">
+          <div class="ico">${a.ico}</div>
+          <div class="info">
+            <div class="name">${a.label}</div>
+            <div class="dev">${a.dev} · ${a.cat}</div>
+          </div>
+        </div>
+        <div class="desc">${a.desc}</div>
+        <button class="btn ${installed ? 'installed' : 'install'}" data-id="${a.id}">${installed ? '✓ Installed' : 'Install'}</button>`
+      card.querySelector('.btn').addEventListener('click', () => {
+        const id = a.id
+        if (isInstalled(id)) { uninstallApp(id); renderMarket(); rebuildDesktop() }
+        else { installApp(id); renderMarket() }
+      })
+      grid.appendChild(card)
+    })
+  }
+
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.remove('active')); t.classList.add('active')
+    currentCat = t.dataset.cat; renderMarket()
+  }))
+
+  renderMarket()
 }
 
 // --- Browser ---
@@ -1208,6 +1350,7 @@ function getFileIcon(type, name) {
 function formatSize(bytes) { if (!bytes) return ''; if (bytes < 1024) return bytes + ' B'; if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB'; return (bytes/1048576).toFixed(1) + ' MB' }
 
 // --- Register built-in apps ---
+REGISTERED_APPS['market'] = launchMarket
 REGISTERED_APPS['calculator'] = launchCalculator
 REGISTERED_APPS['notepad'] = launchNotepad
 REGISTERED_APPS['explorer'] = launchExplorer
