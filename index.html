@@ -716,6 +716,166 @@ function initStartMenu() {
   })
 }
 
+// --- Market App Launcher ---
+function launchMarketApp(app) {
+  switch(app.id) {
+    case 'snake': launchSnake(); break
+    case 'tetris': launchTetris(); break
+    case 'paint': launchPaint(); break
+    case 'terminal': launchTerminal(); break
+    case 'weather': launchWeather(); break
+    case 'maps': launchMaps(); break
+    case 'music': launchMusicPlayer(); break
+    case 'chat': launchChat(); break
+    case 'settings': launchSettings(); break
+    default:
+      const d = document.createElement('div'); d.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:40px;gap:16px;text-align:center'
+      d.innerHTML = `<div style="font-size:48px">${app.ico}</div><div style="font-size:18px;font-weight:500;color:#fff">${app.label}</div><div style="color:#888;font-size:13px;max-width:300px;line-height:1.5">${app.desc}</div><div style="color:#555;font-size:11px">by ${app.dev} · ${app.cat}</div>`
+      createWindow({title:app.label, icon:app.ico, width:360, height:260, minWidth:280, minHeight:200, content:d})
+  }
+}
+
+function launchSnake() {
+  const c = document.createElement('canvas'); c.width=300; c.height=300; c.style.cssText='display:block;margin:auto;background:#111'
+  const ctx = c.getContext('2d')
+  const w = createWindow({title:'Snake Game', icon:'🐍', width:340, height:380, minWidth:300, minHeight:340, content:c})
+  let snake = [{x:5,y:5}], dir = {x:1,y:0}, food = {x:10,y:5}, nextDir = {x:1,y:0}, score = 0, dead = false
+  function placeFood() { food = {x:Math.floor(Math.random()*20), y:Math.floor(Math.random()*20)}; if (snake.some(s=>s.x===food.x&&s.y===food.y)) placeFood() }
+  function step() {
+    if (dead) return
+    dir = {...nextDir}; const head = {x:snake[0].x+dir.x, y:snake[0].y+dir.y}
+    if (head.x<0||head.x>=20||head.y<0||head.y>=20||snake.some(s=>s.x===head.x&&s.y===head.y)) { dead = true; return }
+    snake.unshift(head)
+    if (head.x===food.x&&head.y===food.y) { score+=10; placeFood() } else snake.pop()
+    draw()
+  }
+  function draw() {
+    ctx.fillStyle='#111'; ctx.fillRect(0,0,300,300)
+    snake.forEach((s,i)=>{ctx.fillStyle=i===0?'#4f4':'#2a2'; ctx.fillRect(s.x*15,s.y*15,14,14)})
+    ctx.fillStyle='#f44'; ctx.fillRect(food.x*15,food.y*15,14,14)
+    ctx.fillStyle='#fff'; ctx.font='12px sans-serif'; ctx.fillText('Score: '+score,5,12)
+    if (dead) { ctx.fillStyle='rgba(0,0,0,.7)'; ctx.fillRect(0,0,300,300); ctx.fillStyle='#fff'; ctx.font='20px sans-serif'; ctx.fillText('Game Over',90,150); ctx.font='12px sans-serif'; ctx.fillText('Click to restart',105,180) }
+  }
+  document.addEventListener('keydown', function handler(e) {
+    if (w.state==='minimized') return
+    const k = e.key; const opp = {ArrowUp:'ArrowDown',ArrowDown:'ArrowUp',ArrowLeft:'ArrowRight',ArrowRight:'ArrowLeft'}
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(k) && dir.x!=={ArrowUp:0,ArrowDown:0,ArrowLeft:-1,ArrowRight:1}[opp[k]]) {
+      e.preventDefault(); nextDir = {ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0}}[k]
+    }
+  })
+  c.addEventListener('click',()=>{if(dead){snake=[{x:5,y:5}];dir={x:1,y:0};nextDir={x:1,y:0};score=0;dead=false;placeFood();step()}})
+  placeFood(); draw(); setInterval(step, 150)
+}
+
+function launchTetris() {
+  const c = document.createElement('canvas'); c.width=200; c.height=400; c.style.cssText='display:block;margin:auto;background:#111'
+  const ctx = c.getContext('2d'); const w = createWindow({title:'Tetris', icon:'🧱', width:240, height:460, minWidth:220, minHeight:420, content:c})
+  const COLS=10, ROWS=20, BS=20; let board=Array.from({length:ROWS},()=>Array(COLS).fill(0))
+  const PIECES=[[[1,1,1,1]],[[1,1],[1,1]],[[1,0],[1,0],[1,1]],[[0,1],[0,1],[1,1]],[[1,0],[1,1],[0,1]],[[0,1],[1,1],[1,0]],[[1,1,1],[0,1,0]]]
+  let piece={shape:PIECES[0],x:3,y:0}, next=PIECES[Math.floor(Math.random()*PIECES.length)], score=0, dead=false
+  function newPiece() { piece={shape:next,x:3,y:0}; next=PIECES[Math.floor(Math.random()*PIECES.length)]; if(collides(piece))dead=true }
+  function collides(p){return p.shape.some((r,dy)=>r.some((v,dx)=>v&&(p.x+dx<0||p.x+dx>=COLS||p.y+dy>=ROWS||(p.y+dy>=0&&board[p.y+dy][p.x+dx]))))}
+  function lock(){piece.shape.forEach((r,dy)=>r.forEach((v,dx)=>{if(v&&piece.y+dy>=0)board[piece.y+dy][piece.x+dx]=1}));let cleared=0;for(let y=ROWS-1;y>=0;y--){if(board[y].every(v=>v)){board.splice(y,1);board.unshift(Array(COLS).fill(0));y++;cleared++}}score+=cleared*100;newPiece()}
+  function move(dx,dy){const p2={...piece,x:piece.x+dx,y:piece.y+dy};if(!collides(p2))piece=p2;else if(dy)lock()}
+  function rotate(){const shape=piece.shape[0].map((_,i)=>piece.shape.map(r=>r[i]).reverse());const p2={...piece,shape};if(!collides(p2))piece=p2}
+  function draw(){ctx.fillStyle='#111';ctx.fillRect(0,0,200,400);board.forEach((r,y)=>r.forEach((v,x)=>{if(v){ctx.fillStyle='#4488ff';ctx.fillRect(x*BS,y*BS,BS-1,BS-1)}}));piece.shape.forEach((r,dy)=>r.forEach((v,dx)=>{if(v){ctx.fillStyle='#66aaff';ctx.fillRect((piece.x+dx)*BS,(piece.y+dy)*BS,BS-1,BS-1)}}));ctx.fillStyle='#fff';ctx.font='10px sans-serif';ctx.fillText('Score:'+score,5,10);if(dead){ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(0,0,200,400);ctx.fillStyle='#fff';ctx.font='16px sans-serif';ctx.fillText('Game Over',35,190)}}
+  newPiece();document.addEventListener('keydown',function handler(e){if(w.state==='minimized')return;if(dead)return;if(e.key==='ArrowLeft')move(-1,0);if(e.key==='ArrowRight')move(1,0);if(e.key==='ArrowDown')move(0,1);if(e.key==='ArrowUp')rotate();e.preventDefault()})
+  setInterval(()=>{if(!dead)move(0,1);draw()},400)
+}
+
+function launchPaint() {
+  const c = document.createElement('canvas'); c.width=400; c.height=300; c.style.cssText='display:block;margin:auto;background:#fff;cursor:crosshair'
+  const ctx = c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,400,300)
+  const w = createWindow({title:'Kilton Paint', icon:'🎨', width:440, height:400, minWidth:380, minHeight:340, content:c})
+  let drawing=false, color='#000', size=3
+  const tbar = document.createElement('div'); tbar.style.cssText='display:flex;gap:4px;padding:4px;flex-wrap:wrap;flex-shrink:0'
+  const colors=['#000','#f44','#fa0','#ff0','#0a0','#08f','#a0f','#fff','#888','#faa','#fc8','#ff8','#8f8','#8cf','#c8f']
+  colors.forEach(c2=>{const b=document.createElement('button');b.style.cssText=`width:18px;height:18px;border:1px solid #555;border-radius:3px;background:${c2};cursor:pointer`;b.addEventListener('click',()=>color=c2);tbar.appendChild(b)})
+  tbar.appendChild(document.createTextNode(' '))
+  const sizes=[1,3,6];sizes.forEach(s=>{const b=document.createElement('button');b.textContent='⬤';b.style.cssText=`font-size:${s*4+8}px;border:none;background:transparent;color:#aaa;cursor:pointer;padding:0 2px`;b.addEventListener('click',()=>size=s);tbar.appendChild(b)})
+  const clr=document.createElement('button');clr.textContent='🗑️';clr.style.cssText='border:none;background:transparent;cursor:pointer;font-size:14px;margin-left:auto';clr.addEventListener('click',()=>{ctx.fillStyle='#fff';ctx.fillRect(0,0,400,300)});tbar.appendChild(clr)
+  w.contentEl.parentNode.insertBefore(tbar,w.contentEl); c.parentNode.style.borderRadius='0 0 7px 7px'
+  function pos(e){const r=c.getBoundingClientRect();return{x:(e.clientX||e.touches[0].clientX)-r.left,y:(e.clientY||e.touches[0].clientY)-r.top}}
+  c.addEventListener('mousedown',e=>{drawing=true;const p=pos(e);ctx.fillStyle=color;ctx.beginPath();ctx.arc(p.x,p.y,size/2,0,Math.PI*2);ctx.fill()})
+  c.addEventListener('mousemove',e=>{if(!drawing)return;const p=pos(e);ctx.fillStyle=color;ctx.beginPath();ctx.arc(p.x,p.y,size/2,0,Math.PI*2);ctx.fill()})
+  c.addEventListener('mouseup',()=>drawing=false);c.addEventListener('mouseleave',()=>drawing=false)
+}
+
+function launchTerminal() {
+  const d = document.createElement('div'); d.style.cssText='display:flex;flex-direction:column;height:100%'
+  const out = document.createElement('div'); out.style.cssText='flex:1;overflow-y:auto;padding:8px;font-family:monospace;font-size:13px;color:#0f0;background:#000;line-height:1.4;white-space:pre-wrap'
+  const inp = document.createElement('div'); inp.style.cssText='display:flex;padding:4px 8px;border-top:1px solid #333;background:#000'
+  const prompt = document.createElement('span'); prompt.textContent='$ '; prompt.style.cssText='color:#0f0;font-family:monospace;font-size:13px'
+  const input = document.createElement('input'); input.style.cssText='flex:1;border:none;outline:none;background:transparent;color:#0f0;font-family:monospace;font-size:13px'; input.autofocus=true
+  inp.appendChild(prompt); inp.appendChild(input); d.appendChild(out); d.appendChild(inp)
+  const w = createWindow({title:'Terminal', icon:'💻', width:520, height:360, minWidth:350, minHeight:250, content:d})
+  out.innerHTML = 'Kilton Terminal v1.0<br>Type `help` for commands.<br>'
+  function write(t){out.innerHTML+=t+'<br>';out.scrollTop=out.scrollHeight}
+  const cmds={help:'Commands: help, echo, date, whoami, ls, uname, clear, neofetch',echo:args=>args||'',date:()=>new Date().toString(),whoami:()=>currentUser||'user',uname:()=>'Kilton OS 1.0',neofetch:()=>'Kilton OS 1.0\nKernel: Kilton\nShell: built-in\nUser: '+(currentUser||'user')+'\nApps: '+(BUILT_IN_APPS.length+getInstalledIds().length),ls:()=>{const f=listDir('Desktop');return f.length?f.map(x=>x.name).join('<br>'):'(empty)'},clear:()=>{out.innerHTML=''}}
+  input.addEventListener('keydown',e=>{if(e.key!=='Enter')return;const full=input.value;input.value='';write('$ '+full);const parts=full.trim().split(/\s+/);const cmd=parts[0].toLowerCase();const args=parts.slice(1).join(' ');if(cmd in cmds){const r=cmds[cmd](args);if(r!==undefined)write(r)}else if(cmd)write('Command not found: '+cmd)})
+}
+
+function launchWeather() {
+  const d=document.createElement('div');d.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:30px;gap:8px;text-align:center'
+  const cities=['New York','London','Tokyo','Paris','Berlin','Moscow','Sydney','Dubai'];const city=cities[Math.floor(Math.random()*cities.length)]
+  const temp=Math.floor(Math.random()*35)+5;const cond=['☀️ Sunny','⛅ Cloudy','🌧️ Rainy','🌨️ Snowy','🌩️ Stormy','🌤️ Clear'];const c2=cond[Math.floor(Math.random()*cond.length)]
+  d.innerHTML=`<div style="font-size:40px">${c2.split(' ')[0]}</div><div style="font-size:36px;font-weight:200;color:#fff">${temp}°C</div><div style="font-size:16px;color:#aaa;margin-bottom:4px">${city}</div><div style="font-size:13px;color:#888">${c2}</div><div style="font-size:11px;color:#555;margin-top:16px">Last updated: ${new Date().toLocaleString()}</div><div style="font-size:10px;color:#444;margin-top:4px">Refresh to get new forecast</div>`
+  createWindow({title:'Weather', icon:'🌤️', width:320, height:340, minWidth:280, minHeight:280, content:d})
+}
+
+function launchMaps() {
+  const d=document.createElement('div');d.style.cssText='display:flex;align-items:center;justify-content:center;height:100%;background:#1a2a3a;padding:10px'
+  d.innerHTML='<div style="text-align:center;color:#888;font-size:13px;line-height:1.6">🗺️ <b style="color:#aaa">World Map</b><br><br><span style="font-size:28px">🌍</span><br><br>Interactive maps coming soon!<br><span style="font-size:11px;color:#555">Install from Browser to explore</span></div>'
+  createWindow({title:'Maps', icon:'🗺️', width:400, height:320, minWidth:300, minHeight:250, content:d})
+}
+
+function launchMusicPlayer() {
+  const d=document.createElement('div');d.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:30px;gap:12px;text-align:center'
+  const input=document.createElement('input');input.type='file';input.accept='audio/*';input.style.cssText='display:none';d.appendChild(input)
+  d.innerHTML+=`<div style="font-size:40px">🎵</div><div style="font-size:16px;color:#aaa">Upload music to play</div><div style="font-size:12px;color:#666">Supports MP3, WAV, OGG</div><button id="mpUpload" style="padding:8px 20px;border:none;border-radius:6px;background:rgba(0,120,215,.5);color:#fff;cursor:pointer;font-size:13px">Choose File</button><div id="mpStatus" style="font-size:11px;color:#555;margin-top:8px"></div>`
+  createWindow({title:'Music Player', icon:'🎵', width:340, height:360, minWidth:280, minHeight:300, content:d})
+  d.querySelector('#mpUpload').addEventListener('click',()=>input.click())
+  input.addEventListener('change',()=>{const file=input.files[0];if(!file)return;const url=URL.createObjectURL(file);const au=document.createElement('audio');au.src=url;au.controls=true;au.style.cssText='width:80%;margin:8px 0';d.querySelector('#mpStatus').textContent='Playing: '+file.name;d.appendChild(au);au.play()})
+}
+
+function launchChat() {
+  const d=document.createElement('div');d.style.cssText='display:flex;flex-direction:column;height:100%'
+  const msgs=document.createElement('div');msgs.style.cssText='flex:1;overflow-y:auto;padding:8px;font-size:13px;line-height:1.5'
+  const bot=['Hello!','How are you?','Nice to chat!','What are you working on?','I like your desktop setup!','Want to play a game? Open Snake!','Check the weather!','Try the Calculator app!','😊','👍']
+  msgs.innerHTML='<div style="color:#888;margin-bottom:8px;font-size:11px">Kilton Chat - Local mode</div>'
+  const inp=document.createElement('div');inp.style.cssText='display:flex;gap:6px;padding:6px 8px;border-top:1px solid rgba(255,255,255,.06)'
+  const input=document.createElement('input');input.style.cssText='flex:1;padding:6px 10px;border:none;border-radius:16px;background:rgba(255,255,255,.06);color:#fff;outline:none;font-size:13px';input.placeholder='Type a message...'
+  const btn=document.createElement('button');btn.textContent='Send';btn.style.cssText='padding:6px 14px;border:none;border-radius:16px;background:linear-gradient(135deg,#6a11cb,#2575fc);color:#fff;cursor:pointer;font-size:12px'
+  inp.appendChild(input);inp.appendChild(btn);d.appendChild(msgs);d.appendChild(inp)
+  createWindow({title:'Kilton Chat', icon:'💬', width:360, height:400, minWidth:300, minHeight:300, content:d})
+  function addMsg(who,text){const el=document.createElement('div');el.innerHTML=`<b style="color:${who==='You'?'#8af':'#f8a'}">${who}:</b> ${text}`;msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight}
+  btn.addEventListener('click',()=>{const t=input.value.trim();if(!t)return;addMsg('You',t);input.value='';setTimeout(()=>addMsg('Bot',bot[Math.floor(Math.random()*bot.length)]),500+Math.random()*800)})
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()})
+  addMsg('Bot','Welcome to Kilton Chat! Say hi.')
+}
+
+function launchSettings() {
+  const d=document.createElement('div');d.style.cssText='display:flex;flex-direction:column;padding:20px;gap:12px;font-size:13px'
+  d.innerHTML=`<div style="font-size:16px;font-weight:500;margin-bottom:4px">⚙️ System Settings</div>`
+  function addRow(label,ctrl){const r=document.createElement('div');r.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)';r.innerHTML=`<span style="color:#aaa">${label}</span>`;r.appendChild(ctrl);d.appendChild(r)}
+  // Username
+  const uName=document.createElement('span');uName.style.cssText='color:#fff';uName.textContent=currentUser||'User';addRow('Username',uName)
+  // Version
+  const ver=document.createElement('span');ver.style.cssText='color:#888';ver.textContent='Kilton OS 1.0.0';addRow('OS Version',ver)
+  // Theme toggle
+  const thm=document.createElement('button');thm.textContent='🎨 Default Dark';thm.style.cssText='padding:4px 12px;border:none;border-radius:4px;background:rgba(255,255,255,.1);color:#ddd;cursor:pointer;font-size:12px'
+  thm.addEventListener('click',()=>showToast('More themes coming soon!'));addRow('Theme',thm)
+  // Clear data
+  const clr=document.createElement('button');clr.textContent='🗑️ Clear All Data';clr.style.cssText='padding:4px 12px;border:none;border-radius:4px;background:rgba(200,60,60,.3);color:#faa;cursor:pointer;font-size:12px'
+  clr.addEventListener('click',()=>{if(confirm('Clear all Kilton data? This cannot be undone.')){localStorage.clear();showToast('Data cleared. Refresh page.');setTimeout(()=>location.reload(),1000)}});addRow('Reset',clr)
+  // App count
+  const cnt=document.createElement('span');cnt.style.cssText='color:#fff';cnt.textContent=String(BUILT_IN_APPS.length+getInstalledIds().length);addRow('Apps installed',cnt)
+  // Storage
+  let size=0;try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('kilton_'))size+=localStorage.getItem(k).length*2}}catch(e){}
+  const st=document.createElement('span');st.style.cssText='color:#fff';st.textContent=size>1024?(size/1024).toFixed(1)+' KB':size+' B';addRow('Storage used',st)
+  createWindow({title:'Settings', icon:'⚙️', width:400, height:380, minWidth:320, minHeight:300, content:d})
+}
+
 // --- Launch App ---
 function launchApp(id) {
   if (REGISTERED_APPS[id]) {
@@ -727,14 +887,6 @@ function launchApp(id) {
   if (existing) { focusWindow(existing.id); return }
   const minimized = STATE.windows.find(w => w.title.toLowerCase().includes(id) && w.state === 'minimized')
   if (minimized) { restoreWindow(minimized.id); return }
-  // Check if it's an installed market app
-  const marketApp = MARKET_APPS.find(a => a.id === id && isInstalled(id))
-  if (marketApp) {
-    const d = document.createElement('div'); d.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:40px;gap:16px;text-align:center'
-    d.innerHTML = `<div style="font-size:48px">${marketApp.ico}</div><div style="font-size:18px;font-weight:500;color:#fff">${marketApp.label}</div><div style="color:#888;font-size:13px;max-width:300px;line-height:1.5">${marketApp.desc}</div><div style="color:#555;font-size:11px">by ${marketApp.dev} · ${marketApp.cat}</div>`
-    createWindow({title:marketApp.label, icon:marketApp.ico, width:360, height:260, minWidth:280, minHeight:200, content:d})
-    return
-  }
   // Default handlers
   switch(id) {
     case 'calculator': launchCalculator(); break
@@ -742,7 +894,11 @@ function launchApp(id) {
     case 'explorer':
     case 'computer': launchExplorer(); break
     case 'about': launchAbout(); break
-    default: showToast('App not found: ' + id)
+    default:
+      // Check installed market app
+      const a = MARKET_APPS.find(x => x.id === id && isInstalled(id))
+      if (a) { launchMarketApp(a); return }
+      showToast('App not found: ' + id)
   }
 }
 
