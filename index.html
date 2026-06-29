@@ -164,6 +164,24 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',Tahoma,s
 #loading .bar{width:200px;height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:24px;overflow:hidden}
 #loading .barFill{height:100%;width:0%;background:linear-gradient(90deg,#6a11cb,#2575fc);border-radius:2px;transition:width .3s}
 
+/* Login screen */
+#loginScreen{position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#0a0a15 0%,#1a0533 50%,#0d1b3e 100%);z-index:99999;display:flex;align-items:center;justify-content:center;transition:opacity .5s}
+#loginScreen.hidden{opacity:0;pointer-events:none}
+#loginBox{background:rgba(20,20,35,.9);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:32px;width:340px;box-shadow:0 8px 40px rgba(0,0,0,.5);text-align:center}
+#loginBox .logo{font-size:40px;margin-bottom:8px}
+#loginBox h1{font-size:22px;font-weight:300;color:#fff;margin-bottom:4px}
+#loginBox .sub{color:#666;font-size:12px;margin-bottom:24px}
+#loginBox .field{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 14px;width:100%;color:#fff;font-size:14px;outline:none;margin-bottom:10px;transition:border .2s}
+#loginBox .field:focus{border-color:rgba(100,100,255,.4)}
+#loginBox .field::placeholder{color:#555}
+#loginBox .error{color:#f55;font-size:12px;min-height:18px;margin-bottom:8px}
+#loginBox .btn{width:100%;padding:10px;border:none;border-radius:6px;font-size:14px;cursor:pointer;background:linear-gradient(135deg,#6a11cb,#2575fc);color:#fff;font-weight:500;transition:opacity .2s}
+#loginBox .btn:hover{opacity:.85}
+#loginBox .btn:active{opacity:.7}
+#loginBox .toggle{margin-top:12px;font-size:12px;color:#666;cursor:pointer}
+#loginBox .toggle:hover{color:#aaa}
+#loginBox .caps{color:#ffa;font-size:11px;margin-bottom:6px;display:none}
+
 /* Animations */
 @keyframes fadeIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
 @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
@@ -180,6 +198,20 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',Tahoma,s
   <div class="bar"><div class="barFill" id="loadBar"></div></div>
 </div>
 
+<div id="loginScreen">
+  <div id="loginBox">
+    <div class="logo">⬡</div>
+    <h1>Kilton</h1>
+    <div class="sub">Sign in to your account</div>
+    <div class="caps" id="capsWarn">⚠️ Caps Lock is ON</div>
+    <input class="field" id="loginUser" placeholder="Username" autocomplete="off" spellcheck="false">
+    <input class="field" id="loginPass" type="password" placeholder="Password" autocomplete="off">
+    <div class="error" id="loginError"></div>
+    <button class="btn" id="loginBtn">Sign In</button>
+    <div class="toggle" id="loginToggle">Don't have an account? Create one</div>
+  </div>
+</div>
+
 <div id="desktop">
   <canvas id="bgCanvas"></canvas>
   <div id="desktopIcons"></div>
@@ -187,14 +219,16 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',Tahoma,s
 
 <div id="startMenu">
   <div id="startHeader">
-    <div class="avatar">🧑</div>
+    <div class="avatar" id="startAvatar">🧑</div>
     <div class="userInfo">
-      <div class="name">User</div>
+      <div class="name" id="startUserName">User</div>
       <div class="status">Online</div>
     </div>
   </div>
   <div id="startApps"></div>
   <div id="startFooter">
+    <button id="lockBtn">🔒 Lock</button>
+    <span style="flex:1"></span>
     <button id="powerBtn">⏻ Power</button>
   </div>
 </div>
@@ -548,6 +582,16 @@ function initStartMenu() {
       showToast('Ready to close tab')
     }, 500)
   })
+  document.getElementById('lockBtn').addEventListener('click', () => {
+    toggleStartMenu()
+    clearSession()
+    closeAllWindows()
+    document.getElementById('loginScreen').classList.remove('hidden')
+    document.getElementById('loginUser').value = ''
+    document.getElementById('loginPass').value = ''
+    document.getElementById('loginError').textContent = ''
+    document.getElementById('loginUser').focus()
+  })
 }
 
 // --- Launch App ---
@@ -808,6 +852,107 @@ function showToast(msg) {
   setTimeout(() => { t.classList.add('fade'); setTimeout(() => t.remove(), 300) }, 2000)
 }
 
+// --- Auth System ---
+const AUTH_KEY = 'kilton_users'
+const SESSION_KEY = 'kilton_session'
+let currentUser = null
+
+function getUsers() {
+  try { return JSON.parse(localStorage.getItem(AUTH_KEY)) || {} } catch(e) { return {} }
+}
+
+function saveUsers(users) {
+  try { localStorage.setItem(AUTH_KEY, JSON.stringify(users)) } catch(e) {}
+}
+
+function setSession(user) {
+  currentUser = user
+  try { localStorage.setItem(SESSION_KEY, user) } catch(e) {}
+  const nameEl = document.getElementById('startUserName')
+  if (nameEl) nameEl.textContent = user
+  const avEl = document.getElementById('startAvatar')
+  if (avEl) avEl.textContent = user.charAt(0).toUpperCase()
+}
+
+function clearSession() {
+  currentUser = null
+  try { localStorage.removeItem(SESSION_KEY) } catch(e) {}
+}
+
+function checkSession() {
+  try {
+    const s = localStorage.getItem(SESSION_KEY)
+    if (s) {
+      const users = getUsers()
+      if (users[s]) { setSession(s); return true }
+    }
+  } catch(e) {}
+  return false
+}
+
+function initAuth() {
+  const screen = document.getElementById('loginScreen')
+  const userField = document.getElementById('loginUser')
+  const passField = document.getElementById('loginPass')
+  const errorEl = document.getElementById('loginError')
+  const loginBtn = document.getElementById('loginBtn')
+  const toggle = document.getElementById('loginToggle')
+  const capsWarn = document.getElementById('capsWarn')
+  let isRegister = false
+
+  // Caps lock detection
+  function checkCaps(e) {
+    capsWarn.style.display = e.getModifierState && e.getModifierState('CapsLock') ? 'block' : 'none'
+  }
+  passField.addEventListener('keydown', checkCaps)
+  passField.addEventListener('keyup', checkCaps)
+
+  function doAuth() {
+    const user = userField.value.trim()
+    const pass = passField.value
+    if (!user || !pass) { errorEl.textContent = 'Fill in both fields'; return }
+    const users = getUsers()
+    if (isRegister) {
+      if (users[user]) { errorEl.textContent = 'Username already taken'; return }
+      if (user.length < 2) { errorEl.textContent = 'Username too short (min 2)'; return }
+      if (pass.length < 3) { errorEl.textContent = 'Password too short (min 3)'; return }
+      users[user] = pass
+      saveUsers(users)
+      setSession(user)
+      screen.classList.add('hidden')
+      startDesktop()
+    } else {
+      if (!users[user]) { errorEl.textContent = 'User not found'; return }
+      if (users[user] !== pass) { errorEl.textContent = 'Wrong password'; return }
+      setSession(user)
+      screen.classList.add('hidden')
+      startDesktop()
+    }
+  }
+
+  loginBtn.addEventListener('click', doAuth)
+
+  userField.addEventListener('keydown', e => { if (e.key === 'Enter') passField.focus() })
+  passField.addEventListener('keydown', e => { if (e.key === 'Enter') doAuth() })
+
+  toggle.addEventListener('click', () => {
+    isRegister = !isRegister
+    loginBtn.textContent = isRegister ? 'Create Account' : 'Sign In'
+    toggle.textContent = isRegister ? 'Already have an account? Sign in' : "Don't have an account? Create one"
+    errorEl.textContent = ''
+    capsWarn.style.display = 'none'
+  })
+
+  // If already logged in, skip
+  if (checkSession()) {
+    screen.classList.add('hidden')
+    startDesktop()
+  } else {
+    screen.classList.remove('hidden')
+    userField.focus()
+  }
+}
+
 // --- Register built-in apps ---
 REGISTERED_APPS['calculator'] = launchCalculator
 REGISTERED_APPS['notepad'] = launchNotepad
@@ -815,8 +960,8 @@ REGISTERED_APPS['explorer'] = launchExplorer
 REGISTERED_APPS['computer'] = launchExplorer
 REGISTERED_APPS['about'] = launchAbout
 
-// --- Init ---
-function init() {
+// --- Desktop Start (after auth) ---
+function startDesktop() {
   initDesktop()
   initBgCanvas()
   initStartMenu()
@@ -883,8 +1028,8 @@ function init() {
   }, 100)
 }
 
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init)
-else init()
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initAuth)
+else initAuth()
 
 })()
 </script>
