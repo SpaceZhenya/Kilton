@@ -1198,12 +1198,14 @@ function launchMarket() {
           </div>
         </div>
         <div class="desc">${a.desc}</div>
-        <button class="btn ${installed ? 'installed' : 'install'}" data-id="${a.id}">${installed ? '✓ Installed' : 'Install'}</button>`
-      card.querySelector('.btn').addEventListener('click', () => {
-        const id = a.id
-        if (isInstalled(id)) { uninstallApp(id); renderMarket(); rebuildDesktop() }
-        else { installApp(id); renderMarket() }
-      })
+        <div style="display:flex;gap:4px">
+          ${installed ? `<button class="btn install" data-id="${a.id}" style="flex:1">▶ Open</button><button class="btn uninstall" data-id="${a.id}" style="flex:0;padding:5px 8px">✕</button>` : `<button class="btn install" data-id="${a.id}" style="flex:1">+ Install</button>`}
+        </div>`
+      card.querySelectorAll('.btn').forEach(b => b.addEventListener('click', () => {
+        if (isInstalled(a.id) && b.classList.contains('uninstall')) { uninstallApp(a.id); renderMarket(); rebuildDesktop() }
+        else if (isInstalled(a.id)) { launchApp(a.id) }
+        else { installApp(a.id); renderMarket() }
+      }))
       grid.appendChild(card)
     })
   }
