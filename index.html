@@ -1429,18 +1429,25 @@ function launchBrowser(url) {
   div.querySelector('[data-b="dl"]').addEventListener('click', async () => {
     if (!currentUrl) { showToast('No URL to download'); return }
     const url = currentUrl
-    let fileName = url.split('/').pop().split('?')[0] || 'download'
-    if (!fileName.includes('.')) fileName = 'page.html'
+    let fileName = url.split('/').pop().split('?')[0] || ''
+    const ext = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : ''
+    // Only download direct file links - installers, archives, docs, media
+    const dlExts = ['exe','msi','app','zip','rar','7z','gz','tar','pdf','doc','docx','xls','xlsx','ppt','pptx']
+    if (!dlExts.includes(ext) && !['exe','msi','app'].includes(ext)) {
+      showToast('📥 Use ↗ to open this page - paste a direct file link to download')
+      return
+    }
     showToast('Downloading ' + fileName + '...')
+    console.log('[Kilton Download] Fetching via proxy:', url)
     try {
       const proxyUrl = '/proxy?url=' + encodeURIComponent(url)
       const r = await fetch(proxyUrl)
+      console.log('[Kilton Download] Proxy response:', r.status, r.headers.get('content-type'))
       if (!r.ok) throw new Error('HTTP ' + r.status)
       const contentType = r.headers.get('content-type') || ''
       const blob = await r.blob()
       const reader = new FileReader()
       reader.onload = e => {
-        const ext = fileName.split('.').pop().toLowerCase()
         if (['exe','msi','app','desktop'].includes(ext)) {
           const appName = fileName.replace(/\.(exe|msi|app|desktop)$/i, '')
           const appId = 'installed_' + appName.toLowerCase().replace(/[^a-z0-9]/g,'_') + '_' + Date.now()
@@ -1470,10 +1477,8 @@ function launchBrowser(url) {
       }
       reader.readAsDataURL(blob)
     } catch(err) {
-      let msg = err.message
-      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) msg = 'Server proxy unavailable - restart Kilton server'
-      else if (msg.includes('HTTP 502')) msg = 'Target site blocked the request'
-      else if (msg.includes('HTTP 4')) msg = 'URL not found - this site may not allow downloads via proxy'
+      console.error('[Kilton Download] Error:', err)
+      let msg = 'Proxy error - try ↗ to open in real browser'
       showToast('Download failed: ' + msg)
     }
   })
