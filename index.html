@@ -1166,6 +1166,10 @@ function openFile(dir, name) {
     const au = document.createElement('audio'); au.src = cont; au.controls = true; au.style.cssText = 'width:80%;margin:auto'
     const c = document.createElement('div'); c.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;padding:20px'; c.appendChild(au)
     createWindow({title:name, icon:'🎵', width:400, height:120, content:c})
+  } else if (cont.startsWith('data:video/')) {
+    const vi = document.createElement('video'); vi.src = cont; vi.controls = true; vi.style.cssText = 'max-width:100%;max-height:100%;display:block;margin:auto'
+    const c = document.createElement('div'); c.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;padding:10px'; c.appendChild(vi)
+    createWindow({title:name, icon:'🎬', width:560, height:380, minWidth:300, minHeight:200, content:c})
   } else {
     const d = document.createElement('div'); d.style.cssText = 'padding:20px;color:#aaa;font-size:13px;line-height:1.6'
     d.innerHTML = `<b>${name}</b><br>Type: ${f.type || 'unknown'}<br>Size: ${formatSize(f.size)}<br>Content: ${cont.substring(0,200)}...`
@@ -1969,7 +1973,7 @@ function createWordDoc(dir, name) {
 function getFileIcon(type, name) {
   if (type === 'folder') return '📁'
   const ext = (name||'').split('.').pop().toLowerCase()
-  const m = { txt:'📄',md:'📄',js:'📄',py:'🐍',html:'🌐',css:'🎨',json:'📋',xml:'📋',jpg:'🖼️',jpeg:'🖼️',png:'🖼️',gif:'🖼️',svg:'🖼️',ico:'🖼️',mp3:'🎵',wav:'🎵',ogg:'🎵',mp4:'🎬',avi:'🎬',mkv:'🎬',zip:'📦',rar:'📦',exe:'⚙️',app:'📦',pdf:'📕',doc:'📘',docx:'📘',xls:'📊',xlsx:'📊' }
+  const m = { txt:'📄',md:'📄',js:'📄',py:'🐍',html:'🌐',css:'🎨',json:'📋',xml:'📋',jpg:'🖼️',jpeg:'🖼️',png:'🖼️',gif:'🖼️',svg:'🖼️',ico:'🖼️',webp:'🖼️',mp3:'🎵',wav:'🎵',ogg:'🎵',flac:'🎵',mp4:'🎬',avi:'🎬',mkv:'🎬',webm:'🎬',mov:'🎬',zip:'📦',rar:'📦',exe:'⚙️',app:'📦',pdf:'📕',doc:'📘',docx:'📘',xls:'📊',xlsx:'📊' }
   return m[ext] || '📄'
 }
 
