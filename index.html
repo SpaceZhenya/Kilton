@@ -1539,18 +1539,20 @@ function launchAI() {
       <span style="font-weight:500;font-size:13px">Kilton AI</span>
       <span style="color:#666;font-size:11px">Assistant</span>
       <span style="flex:1"></span>
-      <span style="font-size:10px;color:#444">${MARKET_APPS.length} apps available</span>
+      <button id="aiClear" style="padding:2px 8px;border:none;border-radius:4px;background:rgba(255,255,255,.06);color:#888;cursor:pointer;font-size:11px" title="Clear chat">🗑️</button>
     </div>
     <div class="chat-msgs" id="chatMessages"></div>
     <div class="chat-input-area">
       <input id="chatInput" placeholder="Ask me anything..." spellcheck="false">
       <button id="chatSend">Send</button>
     </div>`
-  createWindow({title:'Kilton AI', icon:'🤖', width:440, height:520, minWidth:320, minHeight:350, content:div})
+  const win = createWindow({title:'Kilton AI', icon:'🤖', width:460, height:540, minWidth:320, minHeight:350, content:div})
 
   const msgsEl = div.querySelector('#chatMessages')
   const inputEl = div.querySelector('#chatInput')
   const sendBtn = div.querySelector('#chatSend')
+  const clearBtn = div.querySelector('#aiClear')
+  const chatHistory = []
 
   function addMsg(role, text) {
     const now = new Date()
@@ -1560,98 +1562,320 @@ function launchAI() {
     el.innerHTML = text.replace(/\n/g, '<br>') + `<div class="time">${t}</div>`
     msgsEl.appendChild(el)
     msgsEl.scrollTop = msgsEl.scrollHeight
+    chatHistory.push({ role, text })
+  }
+
+  // All apps mapping (built-in + market)
+  function getAllAppNames() {
+    const map = {}
+    BUILT_IN_APPS.forEach(a => { map[a.label.toLowerCase()] = a.id; map[a.id] = a.id })
+    MARKET_APPS.forEach(a => { map[a.label.toLowerCase()] = a.id; map[a.id] = a.id })
+    map['settings'] = 'settings'; map['terminal'] = 'terminal'; map['paint'] = 'paint'
+    map['chat'] = 'chat'; map['music player'] = 'music'; map['snake'] = 'snake'
+    map['tetris'] = 'tetris'; map['ai'] = 'ai'; map['app store'] = 'market'
+    map['store'] = 'market'; map['file manager'] = 'explorer'; map['files'] = 'explorer'
+    map['calc'] = 'calculator'; map['text editor'] = 'notepad'
+    return map
   }
 
   function aiRespond(input) {
     const lower = input.toLowerCase().trim()
+    const apps = getAllAppNames()
 
-    // System commands
-    if (lower.includes('open ') || lower.includes('launch ') || lower.includes('start ')) {
-      const targets = { browser:'🌐', market:'🛒', explorer:'📁', calculator:'🔢', notepad:'📝', about:'⬡', ai:'🤖', computer:'💻', file:'📁', files:'📁' }
-      for (const [key, ico] of Object.entries(targets)) {
-        if (lower.includes(key) && key !== 'files') {
-          const appId = key === 'file' ? 'explorer' : key
-          try { launchApp(appId); return `Opening **${key}**...<br><span style="color:#888;font-size:11px">${ico} ${key}</span>` } catch(e) { break }
+    // --- Open/Launch any app ---
+    const openMatch = lower.match(/^(open|launch|start|run)\s+(.+)/)
+    if (openMatch) {
+      const target = openMatch[2].trim()
+      // Check for exact app name match
+      for (const [name, id] of Object.entries(apps)) {
+        if (target === name || target === id || target.includes(name)) {
+          try { launchApp(id); return `✅ Opening **${name}**...` } catch(e) { return `❌ Could not open ${name}` }
         }
+      }
+      // Try partial match
+      for (const [name, id] of Object.entries(apps)) {
+        if (name.includes(target) || id.includes(target)) {
+          try { launchApp(id); return `✅ Opening **${name}**...` } catch(e) { return `❌ Could not open ${name}` }
+        }
+      }
+      return `❌ App "${target}" not found. Try: browser, market, explorer, calculator, notepad, terminal, paint, snake, tetris, chat, music, settings`
+    }
+
+    // --- Close window ---
+    if (lower.includes('close window') || lower.startsWith('close ')) {
+      const target = lower.replace(/close\s*(window)?/,'').trim()
+      if (target) {
+        for (const [name, id] of Object.entries(apps)) {
+          if (target === name || target === id || target.includes(name) || name.includes(target)) {
+            const w = STATE.windows.find(w => w.title.toLowerCase().includes(name))
+            if (w) { closeWindow(w.id); return `✅ Closed **${name}**` }
+            return `ℹ️ No open window for **${name}**`
+          }
+        }
+        return `❌ App "${target}" not found`
+      }
+      // Close active/focused window
+      const focused = STATE.windows.find(w => w.el && w.el.style.zIndex === String(STATE.maxZ))
+      if (focused) { closeWindow(focused.id); return `✅ Closed **${focused.title}**` }
+      return 'ℹ️ No windows open'
+    }
+
+    // --- Minimize window ---
+    if (lower.includes('minimize')) {
+      const target = lower.replace(/minimize\s*/,'').trim()
+      for (const [name, id] of Object.entries(apps)) {
+        if (target && (target === name || target === id || name.includes(target))) {
+          const w = STATE.windows.find(w => w.title.toLowerCase().includes(name))
+          if (w) { minimizeWindow(w.id); return `✅ Minimized **${name}**` }
+          return `ℹ️ No open window for **${name}**`
+        }
+      }
+      const focused = STATE.windows.find(w => w.el && w.el.style.zIndex === String(STATE.maxZ))
+      if (focused) { minimizeWindow(focused.id); return `✅ Minimized **${focused.title}**` }
+      return 'ℹ️ No windows open'
+    }
+
+    // --- List files ---
+    if (lower.includes('list files') || lower.includes('show files') || lower.includes('what\'s on') || lower.includes('whats on')) {
+      const dirs = ['Desktop','Documents','Downloads','Pictures','Music']
+      const dir = dirs.find(d => lower.includes(d.toLowerCase()))
+      const targetDir = dir || 'Desktop'
+      const files = listDir(targetDir)
+      if (!files.length) return `📁 **${targetDir}** is empty.`
+      let result = `📁 **${targetDir}**:<br>`
+      files.forEach(f => {
+        const ico = f.type === 'folder' ? '📁' : getFileIcon(f.type, f.name)
+        result += `${ico} ${f.name}<br>`
+      })
+      return result
+    }
+
+    // --- Search files ---
+    if (lower.includes('find ') || lower.includes('search files') || lower.includes('search for ')) {
+      const query = input.replace(/find |search for |search files |search /gi, '').trim().toLowerCase()
+      if (!query) return '🔍 What file are you looking for?'
+      const fs = getFS()
+      let results = []
+      Object.keys(fs).forEach(dir => {
+        fs[dir].forEach(f => {
+          if (f.name.toLowerCase().includes(query)) results.push(`📁 ${dir} → ${f.name}`)
+        })
+      })
+      if (!results.length) return `🔍 No files matching "${query}"`
+      return `🔍 Found ${results.length} file(s):<br>${results.slice(0,15).join('<br>')}`
+    }
+
+    // --- Read file ---
+    if (lower.includes('read ') || lower.includes('show file ') || lower.includes('open file ')) {
+      const target = input.replace(/read |show file |open file /gi, '').trim()
+      if (!target) return 'Which file should I read?'
+      const fs = getFS()
+      for (const dir of Object.keys(fs)) {
+        const f = fs[dir].find(x => x.name.toLowerCase().includes(target.toLowerCase()))
+        if (f) {
+          if (f.type === 'folder') return `📁 **${f.name}** is a folder. Use \`list files\` to see contents.`
+          const cont = (f.content || '').substring(0, 300)
+          return `📄 **${f.name}** (${dir}):<br><span style="color:#aaa;font-size:11px">${cont.replace(/\n/g,'<br>')}</span>`
+        }
+      }
+      return `❌ File "${target}" not found`
+    }
+
+    // --- Delete file ---
+    if (lower.includes('delete ') || lower.includes('remove ') || lower.includes('trash ')) {
+      const target = input.replace(/delete |remove |trash /gi, '').trim()
+      if (!target) return 'What should I delete?'
+      const fs = getFS()
+      for (const dir of Object.keys(fs)) {
+        const idx = fs[dir].findIndex(x => x.name.toLowerCase() === target.toLowerCase())
+        if (idx !== -1) {
+          deleteItem(dir, fs[dir][idx].name); refreshAllExplorers()
+          return `✅ Deleted **${fs[dir][idx].name}** from ${dir}`
+        }
+      }
+      return `❌ File "${target}" not found`
+    }
+
+    // --- Calculator / Math ---
+    const mathMatch = lower.match(/^(calculate|calc|math|what is|what's)\s+(.+)/)
+    if (mathMatch || lower.match(/^[\d\s+\-*/().%^]+$/)) {
+      const expr = (mathMatch ? mathMatch[2] : lower).replace(/×/g,'*').replace(/÷/g,'/').replace(/x/g,'*').replace(/ /g,'')
+      const safe = expr.replace(/[\d+\-*/().%]/g,'')
+      if (!safe && expr.length > 0) {
+        try {
+          // Safety: only eval math expressions
+          const result = Function('"use strict"; return (' + expr + ')')()
+          if (typeof result === 'number' && !isNaN(result)) return `🧮 **${expr}** = **${result}**`
+        } catch(e) {}
       }
     }
 
-    if (lower.includes('hello') || lower.includes('hi ') || lower === 'hi' || lower === 'hey') {
-      const greets = ["Hello! I'm Kilton AI. How can I help?", "Hi there! Ready to assist.", "Hey! What can I do for you?", "Hello! Try asking me to open an app or tell you the time."]
-      return greets[Math.floor(Math.random() * greets.length)]
+    // --- System info ---
+    if (lower.includes('system') || lower.includes('info') || lower.includes('status') || lower.includes('specs') || lower.includes('about')) {
+      let size = 0
+      try { for (let i=0;i<localStorage.length;i++) { const k=localStorage.key(i); if (k&&k.startsWith('kilton_')) size+=localStorage.getItem(k).length*2 } } catch(e) {}
+      const sizeStr = size > 1024 ? (size/1024).toFixed(1) + ' KB' : size + ' B'
+      return `💻 **Kilton OS**<br>User: **${currentUser||'guest'}**<br>Apps: ${BUILT_IN_APPS.length + getInstalledIds().length} (${getInstalledIds().length} installed)<br>Windows open: ${STATE.windows.length}<br>Storage: ${sizeStr}<br>Version: 1.0.0`
     }
 
-    if (lower.includes('who are you') || lower.includes('what are you') || lower.includes('your name')) {
-      return "I'm **Kilton AI**, your built-in assistant for Kilton OS.<br><br>I can help you open apps, create files, check the time, and more. Try typing `help` to see what I can do!"
-    }
-
+    // --- Time & Date ---
     if (lower.includes('time') || lower.includes('clock')) {
       const now = new Date()
-      return 'The current time is **' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}) + '**'
+      return '🕐 **' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}) + '**'
     }
-
     if (lower.includes('date') || lower.includes('today')) {
       const now = new Date()
-      return "Today is **" + now.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric',year:'numeric'}) + '**'
+      return '📅 **' + now.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric',year:'numeric'}) + '**'
     }
 
-    if (lower.includes('create file') || lower.includes('new file')) {
-      const name = input.replace(/create file|new file/gi, '').trim() || 'ai_note.txt'
+    // --- Create file ---
+    if (lower.includes('create file') || lower.includes('new file') || lower.includes('make file')) {
+      const name = input.replace(/create file|new file|make file/gi, '').trim() || 'ai_note.txt'
+      if (!name.includes('.')) return 'Please include an extension (e.g., note.txt, script.js)'
       try {
-        createFile('Desktop', name, 'text', 'Created by Kilton AI at ' + new Date().toLocaleString())
-        return '✅ Created **' + name + '** on your Desktop.'
-      } catch(e) { return 'Could not create file.' }
+        createFile('Desktop', name, 'text', 'Created by Kilton AI on ' + new Date().toLocaleString())
+        refreshAllExplorers()
+        return '✅ Created **' + name + '** on Desktop'
+      } catch(e) { return '❌ Could not create file' }
     }
 
+    // --- Create folder ---
     if (lower.includes('create folder') || lower.includes('new folder') || lower.includes('mkdir')) {
       const name = input.replace(/create folder|new folder|mkdir/gi, '').trim() || 'New Folder'
       try {
         createFolder('Desktop', name)
-        return '✅ Created folder **' + name + '** on your Desktop.'
-      } catch(e) { return 'Could not create folder.' }
+        refreshAllExplorers()
+        return '✅ Created folder **' + name + '** on Desktop'
+      } catch(e) { return '❌ Could not create folder' }
     }
 
-    if (lower.includes('installed') || lower.includes('my apps')) {
+    // --- Rename ---
+    if (lower.includes('rename ') || lower.includes('rename file')) {
+      const m = input.match(/rename\s+(.+?)\s+to\s+(.+)/i)
+      if (m) {
+        const oldName = m[1].trim(), newName = m[2].trim()
+        const fs = getFS()
+        for (const dir of Object.keys(fs)) {
+          const f = fs[dir].find(x => x.name.toLowerCase() === oldName.toLowerCase())
+          if (f) { renameItem(dir, f.name, newName); refreshAllExplorers(); return `✅ Renamed **${oldName}** → **${newName}**` }
+        }
+        return `❌ File "${oldName}" not found`
+      }
+      return 'Usage: rename [oldname] to [newname]'
+    }
+
+    // --- Market search ---
+    if (lower.includes('search market') || lower.includes('find app') || lower.includes('install ')) {
+      const installMatch = lower.match(/install\s+(.+)/)
+      const searchQuery = installMatch ? installMatch[1].trim() : lower.replace(/search market|find app|find /gi, '').trim()
+      if (searchQuery) {
+        const found = MARKET_APPS.filter(a => a.label.toLowerCase().includes(searchQuery) || a.desc.toLowerCase().includes(searchQuery) || a.cat.toLowerCase().includes(searchQuery))
+        if (found.length === 0) return `🔍 No apps matching "${searchQuery}" in Market`
+        if (found.length === 1 && installMatch) {
+          // Install directly
+          const ids = getInstalledIds()
+          if (ids.includes(found[0].id)) return `✅ **${found[0].label}** is already installed`
+          ids.push(found[0].id); saveInstalledIds(ids); refreshAllExplorers(); initDesktop()
+          return `✅ Installed **${found[0].label}**! Find it on your Desktop or Start Menu`
+        }
+        let result = `🔍 Found ${found.length} app(s):<br>`
+        found.forEach(a => result += `${a.ico} **${a.label}** — ${a.cat}<br>`)
+        result += '<br>Use `install [app name]` to install one'
+        return result
+      }
+    }
+
+    // --- My apps ---
+    if (lower.includes('my apps') || lower.includes('installed') || lower.includes('applications')) {
       const ids = getInstalledIds()
-      if (!ids.length) return "You haven't installed any apps yet. Open 🛒 **Kilton Market** to browse available apps!"
+      if (!ids.length) return "📦 You haven't installed any apps yet. Try `search market` or `install [name]`"
       const names = ids.map(id => { const a = MARKET_APPS.find(m => m.id === id); return a ? a.ico + ' ' + a.label : id }).join('<br>')
-      return 'Your installed apps:<br>' + names
+      return '📦 Your installed apps:<br>' + names
     }
 
-    if (lower === 'help' || lower.includes('help') || lower === '?') {
-      return "I can help with:<br><br>• `open [app]` — launch an app (browser, market, calculator, notepad, explorer)<br>• `time` / `date` — current time and date<br>• `create file [name]` — make a new file<br>• `create folder [name]` — make a new folder<br>• `my apps` — list installed apps<br>• `joke` — tell a joke<br>• `hello` / `hi` — basic chat"
-    }
-
-    if (lower.includes('joke') || lower.includes('funny')) {
+    // --- Joke ---
+    if (lower.includes('joke') || lower.includes('funny') || lower.includes('laugh')) {
       const jokes = [
-        "Why do programmers prefer dark mode? Because light attracts bugs!",
-        "What do you call a fake noodle? An **impasta**!",
-        "Why did the developer go broke? Because he used up all his cache!",
-        "I told my computer I needed a break. Now it won't stop sending me vacation ads.",
-        "Why was the JavaScript developer sad? Because he didn't know how to `null` his feelings."
+        "Why do programmers prefer dark mode? Because light attracts bugs! 🐛",
+        "What do you call a fake noodle? An **impasta**! 🍝",
+        "Why did the developer go broke? He used up all his cache! 💸",
+        "I told my computer I needed a break. Now it won't stop sending vacation ads.",
+        "Why was the JS developer sad? He didn't know how to `null` his feelings.",
+        "Why do Java developers wear glasses? Because they can't C#!",
+        "How many programmers does it take to change a light bulb? None — that's a hardware problem.",
+        "What's a computer's favorite snack? Microchips! 🍟",
+        "Why did the CSS developer leave? They didn't get enough **margin**.",
+        "AI: **A**lways **I**mproving! 😄"
       ]
-      return jokes[Math.floor(Math.random() * jokes.length)]
+      return '😂 ' + jokes[Math.floor(Math.random() * jokes.length)]
     }
 
-    if (lower.includes('thank')) {
-      return "You're welcome! 😊 Let me know if you need anything else."
+    // --- Greetings ---
+    if (lower === 'hi' || lower === 'hello' || lower === 'hey' || lower === 'sup' || lower === 'yo') {
+      const greets = [
+        "Hey there! What can I help with?",
+        "Hello! Ready for action. Try `help` for ideas.",
+        "Hi! I can open apps, manage files, tell time, and more.",
+        "Hey! Need something? Just ask.",
+        "Hello, " + (currentUser || 'friend') + "! How can I assist?"
+      ]
+      return greets[Math.floor(Math.random() * greets.length)]
     }
 
-    if (lower.includes('weather')) {
-      return "I don't have access to live weather data yet, but you can install the **Weather** app from 🛒 Kilton Market!"
+    // --- Who are you ---
+    if (lower.includes('who are you') || lower.includes('what are you') || lower.includes('your name')) {
+      return "I'm **Kilton AI**, version 2.0 — your built-in OS assistant.<br><br>🧠 I can open apps, manage files & folders, do math, search files, find & install Market apps, control windows, tell jokes, and more.<br><br>Type `help` for a full list!"
     }
 
-    // Fallback
-    const fallbacks = [
-      "I'm not sure I understand. Try `help` to see what I can do!",
-      "Hmm, I don't know how to respond to that. Type `help` for available commands.",
-      "I'm still learning! Try `help` to see my capabilities.",
-      "Not sure about that one. Here are some things I CAN do: `help`"
-    ]
-    return fallbacks[Math.floor(Math.random() * fallbacks.length)]
+    // --- How are you ---
+    if (lower.includes('how are you') || lower.includes('how\'s it going') || lower.includes('how do you')) {
+      const states = ["I'm doing great! How about you?", "All systems operational! 😊", "Running smoothly! Thanks for asking.", "Busy as always, but happy to help!"]
+      return states[Math.floor(Math.random() * states.length)]
+    }
+
+    // --- Thanks ---
+    if (lower.includes('thank') || lower.includes('thanks') || lower.includes('thx')) {
+      return "You're welcome! 😊 Anything else?"
+    }
+
+    // --- Goodbye ---
+    if (lower.includes('bye') || lower.includes('goodbye') || lower.includes('see you') || lower.includes('cya')) {
+      return "Bye! Come back anytime. 👋"
+    }
+
+    // --- Help ---
+    if (lower === 'help' || lower === '?' || lower.includes('help') || lower.includes('commands') || lower.includes('what can you')) {
+      return `🤖 **Kilton AI — Help**<br><br>
+📱 **Apps:** open [app], close [app], minimize [app], install [app]<br>
+📁 **Files:** list files, read [file], find [query], create file [name], delete [name], rename [old] to [new]<br>
+📂 **Folders:** create folder [name], list files<br>
+🧮 **Math:** calculate [expression], what is [expression]<br>
+🛒 **Market:** search market [query], install [app], my apps<br>
+💻 **System:** system info, time, date<br>
+🎮 **Fun:** joke, hello, bye<br><br>
+<i>I understand natural language! Try: "open browser and tell me the time"</i>`
+    }
+
+    // --- Default: fallback ---
+    return "🤔 I'm not sure how to respond to that.<br><br>Try: `open browser`, `list files`, `create file note.txt`, `joke`, `system info`, `install snake`, or `help`."
   }
 
-  addMsg('ai', "Hello! I'm **Kilton AI**, your personal assistant. Try asking me to open an app, tell the time, or type `help` for more.")
+  // Handle chained commands
+  function processInput(input) {
+    const parts = input.split(/ and | then |, /i).filter(Boolean)
+    if (parts.length > 1) {
+      let result = ''
+      parts.forEach((p, i) => {
+        const r = aiRespond(p.trim())
+        if (i > 0) result += '<br><br>'
+        result += r
+      })
+      return result
+    }
+    return aiRespond(input)
+  }
+
+  addMsg('ai', "Hello! I'm **Kilton AI v2**. I can open apps, manage files, do math, search the Market, and more. Try typing `help` to see everything I can do!")
 
   function handleSend() {
     const text = inputEl.value.trim()
@@ -1659,11 +1883,13 @@ function launchAI() {
     addMsg('user', text)
     inputEl.value = ''
     setTimeout(() => {
-      const resp = aiRespond(text)
+      if (text.toLowerCase() === 'clear') { msgsEl.innerHTML = ''; return }
+      const resp = processInput(text)
       addMsg('ai', resp)
-    }, 300 + Math.random() * 400)
+    }, 200 + Math.random() * 300)
   }
 
+  clearBtn.addEventListener('click', () => { msgsEl.innerHTML = ''; addMsg('ai', 'Chat cleared. Need anything?') })
   sendBtn.addEventListener('click', handleSend)
   inputEl.addEventListener('keydown', e => { if (e.key === 'Enter') handleSend() })
   inputEl.focus()
