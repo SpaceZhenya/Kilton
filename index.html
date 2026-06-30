@@ -1431,12 +1431,13 @@ function launchBrowser(url) {
     const url = currentUrl
     const fileName = url.split('/').pop().split('?')[0] || 'download'
     showToast('Downloading ' + fileName + '...')
-    let contentType = ''
-    fetch(url).then(r => {
+    // Use server proxy to avoid CORS issues
+    const proxyUrl = '/proxy?url=' + encodeURIComponent(url)
+    fetch(proxyUrl).then(r => {
       if (!r.ok) throw new Error('HTTP ' + r.status)
-      contentType = r.headers.get('content-type') || ''
-      return r.blob()
-    }).then(blob => {
+      const contentType = r.headers.get('content-type') || ''
+      return r.blob().then(blob => ({ blob, contentType }))
+    }).then(({ blob, contentType }) => {
       const reader = new FileReader()
       reader.onload = e => {
         const ext = fileName.split('.').pop().toLowerCase()
