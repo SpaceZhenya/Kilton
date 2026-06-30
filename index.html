@@ -1472,12 +1472,51 @@ function launchBrowser(url) {
     if (currentUrl) window.open(currentUrl, '_blank')
   })
   div.querySelector('[data-b="dl"]').addEventListener('click', () => {
-    // Save current page as HTML file in Downloads
-    if (!currentUrl) { showToast('No page to save'); return }
-    const name = currentUrl.replace(/https?:\/\//,'').replace(/[^a-z0-9]/gi,'_').substring(0,40) + '.html'
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${currentUrl}</title><style>body{font-family:sans-serif;padding:20px;word-break:break-all}</style></head><body><p>Saved from: <a href="${currentUrl}">${currentUrl}</a></p><p>Date: ${new Date().toLocaleString()}</p><hr><p>Use ↗ to open this page in your real browser.</p></body></html>`
-    createFile('Downloads', name, 'text', html)
-    showToast('Saved page link to Downloads')
+    if (!currentUrl) { showToast('No URL'); return }
+    const url = currentUrl
+    const fileName = url.split('/').pop().split('?')[0] || 'download'
+    const ext = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : ''
+    // Try to fetch and download, fallback to saving page link
+    if (['exe','msi','app','zip','rar','7z','pdf','docx','xlsx','dmg','iso'].includes(ext)) {
+      showToast('Downloading ' + fileName + '...')
+      fetch(url, { mode: 'cors' }).then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status)
+        const ct = r.headers.get('content-type') || ''
+        return r.blob().then(b => ({ blob: b, ct }))
+      }).then(({ blob, ct }) => {
+        const reader = new FileReader()
+        reader.onload = e => {
+          if (['exe','msi','app'].includes(ext)) {
+            const appName = fileName.replace(/\.(exe|msi|app)$/i, '')
+            const appId = 'installed_' + appName.toLowerCase().replace(/[^a-z0-9]/g,'_') + '_' + Date.now()
+            REGISTERED_APPS[appId] = () => {
+              const d = document.createElement('div'); d.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:40px;gap:16px;text-align:center'
+              d.innerHTML = `<div style="font-size:48px">⚙️</div><div style="font-size:18px;font-weight:500;color:#fff">${appName}</div><div style="color:#888;font-size:13px;max-width:300px">Installed from browser</div>`
+              createWindow({title:appName, icon:'⚙️', width:360, height:240, content:d})
+            }
+            launchApp(appId); showToast('Installed: ' + appName)
+          } else {
+            const textExts = ['txt','md','js','py','html','css','json','xml','csv','svg']
+            const isText = ct.startsWith('text/') || textExts.includes(ext)
+            let ft = isText ? 'text' : ct.startsWith('audio/') ? 'audio' : ct.startsWith('video/') ? 'video' : 'image'
+            try {
+              if (createFile('Downloads', fileName, ft, e.target.result)) showToast('Downloaded: ' + fileName)
+              else showToast('Already exists')
+            } catch(ex) { showToast('File too large') }
+          }
+          refreshAllExplorers()
+        }
+        reader.readAsDataURL(blob)
+      }).catch(() => {
+        showToast('Blocked by CORS - use ↗ to download externally')
+      })
+    } else {
+      // Save page link
+      const name = url.replace(/https?:\/\//,'').replace(/[^a-z0-9]/gi,'_').substring(0,40) + '.html'
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Saved page</title></head><body><p>URL: <a href="${url}">${url}</a></p><p>${new Date().toLocaleString()}</p></body></html>`
+      createFile('Downloads', name, 'text', html)
+      showToast('Saved page link to Downloads')
+    }
   })
 
   openTabBtn.addEventListener('click', () => { if (currentUrl) window.open(currentUrl, '_blank') })
