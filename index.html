@@ -1338,6 +1338,7 @@ function launchBrowser(url) {
         <span style="color:#666;font-size:11px">🔒</span>
         <input id="browserUrl" style="flex:1;border:none;outline:none;background:transparent;color:#ddd;font-size:12px" placeholder="Search or enter URL" spellcheck="false">
       </div>
+      <button data-b="dl" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:13px" title="Download to Kilton">📥</button>
       <button data-b="ext" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:12px">↗</button>
     </div>
     <div style="flex:1;position:relative;background:#fff">
@@ -1424,6 +1425,38 @@ function launchBrowser(url) {
   div.querySelector('[data-b="ref"]').addEventListener('click', () => { frame.src = currentUrl })
   div.querySelector('[data-b="ext"]').addEventListener('click', () => {
     if (currentUrl) window.open(currentUrl, '_blank')
+  })
+  div.querySelector('[data-b="dl"]').addEventListener('click', () => {
+    if (!currentUrl) return
+    const url = currentUrl
+    const fileName = url.split('/').pop().split('?')[0] || 'download'
+    showToast('Downloading ' + fileName + '...')
+    let contentType = ''
+    fetch(url).then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status)
+      contentType = r.headers.get('content-type') || ''
+      return r.blob()
+    }).then(blob => {
+      const reader = new FileReader()
+      reader.onload = e => {
+        const ext = fileName.split('.').pop().toLowerCase()
+        const textExts = ['txt','md','js','py','html','css','json','xml','csv','ini','cfg','log','bat','sh','svg']
+        const isText = contentType.startsWith('text/') || textExts.includes(ext)
+        const isAudio = contentType.startsWith('audio/') || ['mp3','wav','ogg','flac','aac'].includes(ext)
+        const isVideo = contentType.startsWith('video/') || ['mp4','avi','mkv','webm','mov','wmv','flv'].includes(ext)
+        let fileType = 'image'
+        if (isText) fileType = 'text'
+        else if (isAudio) fileType = 'audio'
+        else if (isVideo) fileType = 'video'
+        try {
+          if (createFile('Downloads', fileName, fileType, e.target.result))
+            showToast('Downloaded: ' + fileName)
+          else showToast('File already exists in Downloads')
+        } catch(ex) { showToast('File too large for storage') }
+        refreshAllExplorers()
+      }
+      reader.readAsDataURL(blob)
+    }).catch(err => showToast('Download failed: ' + err.message))
   })
 
   openTabBtn.addEventListener('click', () => { if (currentUrl) window.open(currentUrl, '_blank') })
