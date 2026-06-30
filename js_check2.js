@@ -1,307 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kilton OS</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;user-select:none}
-html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',Tahoma,sans-serif;font-size:13px;color:#fff}
-/* Desktop */
-#desktop{position:fixed;top:0;left:0;right:0;bottom:40px;background:linear-gradient(135deg,#1a0533 0%,#0d1b3e 30%,#1a3a5c 60%,#2d1b4e 100%);overflow:hidden}
-#desktop canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0}
-#desktopWatermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:120px;font-weight:900;color:rgba(255,255,255,.04);pointer-events:none;z-index:0;letter-spacing:12px;text-transform:uppercase;user-select:none;white-space:nowrap;font-family:system-ui,-apple-system,sans-serif}
-#desktopIcons{position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;padding:12px;display:flex;flex-direction:column;flex-wrap:wrap;align-content:flex-start;gap:4px}
-.deskIcon{display:flex;flex-direction:column;align-items:center;width:74px;padding:6px 4px;border-radius:4px;cursor:pointer;gap:4px}
-.deskIcon:hover{background:rgba(255,255,255,.1)}
-.deskIcon:active{background:rgba(255,255,255,.15)}
-.deskIcon .icon{font-size:32px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
-.deskIcon .label{font-size:11px;text-align:center;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8);word-break:break-word;line-height:1.2;max-width:70px}
-
-/* Taskbar */
-#taskbar{position:fixed;bottom:0;left:0;right:0;height:40px;background:rgba(0,0,0,.85);backdrop-filter:blur(12px);display:flex;align-items:center;z-index:9999;padding:0 4px;border-top:1px solid rgba(255,255,255,.08)}
-#startBtn{padding:4px 16px;height:32px;border:none;background:transparent;color:#fff;font-size:14px;font-weight:600;cursor:pointer;border-radius:4px;display:flex;align-items:center;gap:6px;margin-right:2px}
-#startBtn:hover{background:rgba(255,255,255,.1)}
-#startBtn:active{background:rgba(255,255,255,.15)}
-#startBtn .logo{font-size:18px}
-#taskbarWindows{flex:1;display:flex;align-items:center;gap:2px;overflow:hidden;padding:0 4px}
-.tbWin{display:flex;align-items:center;gap:6px;padding:4px 12px;height:32px;min-width:80px;max-width:200px;border:none;background:rgba(255,255,255,.06);color:#ccc;font-size:12px;cursor:pointer;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tbWin:hover{background:rgba(255,255,255,.1)}
-.tbWin.active{background:rgba(255,255,255,.15);color:#fff}
-.tbWin .ico{margin-right:2px}
-#sysTray{display:flex;align-items:center;gap:6px;padding:0 8px;border-left:1px solid rgba(255,255,255,.1);margin-left:4px;height:28px}
-#sysTray .trayIcon{font-size:14px;cursor:pointer;padding:2px;border-radius:3px}
-#sysTray .trayIcon:hover{background:rgba(255,255,255,.1)}
-#clock{font-size:12px;color:#ddd;text-align:center;padding:0 6px;cursor:pointer;line-height:1.2}
-#clock:hover{background:rgba(255,255,255,.06);border-radius:3px}
-#clock .time{font-weight:500}
-#clock .date{font-size:10px;color:#999}
-
-/* Start Menu */
-#startMenu{position:fixed;bottom:44px;left:0;width:360px;max-height:480px;background:rgba(20,20,30,.95);backdrop-filter:blur(16px);border-radius:8px 8px 0 0;border:1px solid rgba(255,255,255,.1);border-bottom:none;z-index:10000;display:none;overflow:hidden;box-shadow:0 -4px 30px rgba(0,0,0,.5)}
-#startMenu.open{display:flex;flex-direction:column}
-#startHeader{padding:16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,.06)}
-#startHeader .avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#6a11cb,#2575fc);display:flex;align-items:center;justify-content:center;font-size:20px}
-#startHeader .userInfo{flex:1}
-#startHeader .userInfo .name{font-size:14px;font-weight:600}
-#startHeader .userInfo .status{font-size:11px;color:#888}
-#startApps{flex:1;overflow-y:auto;padding:8px 0}
-#startApps::-webkit-scrollbar{width:4px}
-#startApps::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:2px}
-.startApp{display:flex;align-items:center;gap:12px;padding:8px 20px;cursor:pointer;border:none;background:transparent;color:#ccc;font-size:13px;width:100%;text-align:left}
-.startApp:hover{background:rgba(255,255,255,.08);color:#fff}
-.startApp .ico{font-size:20px;width:28px;text-align:center}
-#startFooter{padding:8px 12px;border-top:1px solid rgba(255,255,255,.06);display:flex}
-#startFooter button{padding:6px 12px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:4px;display:flex;align-items:center;gap:6px;font-size:12px}
-#startFooter button:hover{background:rgba(255,255,255,.08);color:#fff}
-
-/* Windows */
-.window{position:absolute;background:rgba(30,30,45,.95);backdrop-filter:blur(12px);border-radius:8px;border:1px solid rgba(255,255,255,.1);box-shadow:0 8px 40px rgba(0,0,0,.5);display:flex;flex-direction:column;min-width:200px;min-height:100px;z-index:100}
-.window.focused{border-color:rgba(255,255,255,.2)}
-.window.maximized{border-radius:0;top:0!important;left:0!important;width:100%!important;height:calc(100% - 40px)!important}
-.window.minimized{transform:scale(0);opacity:0;pointer-events:none;transition:transform .2s,opacity .2s}
-.window:not(.minimized){transition:transform .15s,opacity .15s}
-.window-titlebar{display:flex;align-items:center;padding:0 8px;height:36px;cursor:default;flex-shrink:0;border-radius:7px 7px 0 0}
-.window.focused .window-titlebar{background:rgba(255,255,255,.04)}
-.window-titlebar .winIcon{font-size:14px;margin-right:8px;width:20px;text-align:center}
-.window-titlebar .winTitle{flex:1;font-size:12px;font-weight:500;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.winBtn{padding:4px 10px;height:28px;border:none;background:transparent;color:#999;cursor:pointer;border-radius:4px;font-size:12px;display:flex;align-items:center;justify-content:center;margin-left:2px}
-.winBtn:hover{background:rgba(255,255,255,.1);color:#fff}
-.winBtn.close:hover{background:#e81123;color:#fff}
-.window-content{flex:1;overflow:auto;padding:0;position:relative;border-radius:0 0 7px 7px}
-.window-content::-webkit-scrollbar{width:6px}
-.window-content::-webkit-scrollbar-track{background:transparent}
-.window-content::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
-.resizeHandle{position:absolute;z-index:10}
-.resizeHandle.n{top:-3px;left:4px;right:4px;height:6px;cursor:n-resize}
-.resizeHandle.s{bottom:-3px;left:4px;right:4px;height:6px;cursor:s-resize}
-.resizeHandle.e{top:4px;bottom:4px;right:-3px;width:6px;cursor:e-resize}
-.resizeHandle.w{top:4px;bottom:4px;left:-3px;width:6px;cursor:w-resize}
-.resizeHandle.ne{top:-3px;right:-3px;width:12px;height:12px;cursor:ne-resize}
-.resizeHandle.nw{top:-3px;left:-3px;width:12px;height:12px;cursor:nw-resize}
-.resizeHandle.se{bottom:-3px;right:-3px;width:12px;height:12px;cursor:se-resize}
-.resizeHandle.sw{bottom:-3px;left:-3px;width:12px;height:12px;cursor:sw-resize}
-
-/* Apps */
-/* Calculator */
-.calc-body{display:flex;flex-direction:column;padding:12px;gap:8px;height:100%}
-.calc-display{background:rgba(0,0,0,.3);border-radius:4px;padding:8px 12px;text-align:right;min-height:48px;display:flex;flex-direction:column;justify-content:flex-end}
-.calc-display .expr{font-size:14px;color:#888;min-height:18px;word-break:break-all}
-.calc-display .result{font-size:28px;font-weight:300;color:#fff;word-break:break-all}
-.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;flex:1}
-.calc-grid button{padding:8px;border:none;border-radius:4px;font-size:16px;cursor:pointer;background:rgba(255,255,255,.08);color:#fff;transition:background .1s}
-.calc-grid button:hover{background:rgba(255,255,255,.15)}
-.calc-grid button:active{background:rgba(255,255,255,.2)}
-.calc-grid button.op{background:rgba(100,100,200,.25)}
-.calc-grid button.op:hover{background:rgba(100,100,200,.4)}
-.calc-grid button.eq{background:rgba(0,120,215,.5)}
-.calc-grid button.eq:hover{background:rgba(0,120,215,.7)}
-.calc-grid button.clr{background:rgba(200,60,60,.3)}
-.calc-grid button.clr:hover{background:rgba(200,60,60,.5)}
-
-/* Notepad */
-.notepad-body{display:flex;flex-direction:column;height:100%}
-.notepad-toolbar{display:flex;gap:2px;padding:4px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
-.notepad-toolbar button{padding:4px 10px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:12px}
-.notepad-toolbar button:hover{background:rgba(255,255,255,.08);color:#fff}
-.notepad-body textarea{flex:1;border:none;outline:none;padding:10px;font-family:'Cascadia Code','Consolas',monospace;font-size:13px;resize:none;background:rgba(0,0,0,.2);color:#e0e0e0;line-height:1.5;border-radius:0 0 7px 7px}
-.notepad-body textarea::selection{background:rgba(0,120,215,.5)}
-
-/* File Explorer */
-.explorer-body{display:flex;flex-direction:column;height:100%}
-.explorer-toolbar{display:flex;align-items:center;gap:4px;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;flex-wrap:wrap}
-.explorer-toolbar button{padding:4px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:12px;display:flex;align-items:center;gap:4px}
-.explorer-toolbar button:hover{background:rgba(255,255,255,.08);color:#fff}
-.explorer-toolbar .addrBar{flex:1;padding:3px 8px;border:none;border-radius:3px;background:rgba(0,0,0,.3);color:#ddd;font-size:12px;outline:none;min-width:60px}
-.explorer-content{display:flex;flex:1;overflow:hidden}
-.explorer-sidebar{width:160px;padding:4px 0;border-right:1px solid rgba(255,255,255,.06);overflow-y:auto;flex-shrink:0}
-.explorer-sidebar::-webkit-scrollbar{width:4px}
-.explorer-sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:2px}
-.sideItem{display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;color:#aaa;font-size:12px;border:none;background:transparent;width:100%;text-align:left}
-.sideItem:hover{background:rgba(255,255,255,.06);color:#ddd}
-.sideItem.active{background:rgba(255,255,255,.1);color:#fff}
-.explorer-files{flex:1;padding:8px;overflow-y:auto;display:flex;flex-wrap:wrap;align-content:flex-start;gap:4px}
-.explorer-files::-webkit-scrollbar{width:6px}
-.explorer-files::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
-.fileItem{display:flex;flex-direction:column;align-items:center;width:72px;padding:6px 4px;cursor:pointer;border-radius:4px}
-.fileItem:hover{background:rgba(255,255,255,.08)}
-.fileItem .ico{font-size:28px;line-height:1}
-.fileItem .name{font-size:11px;color:#ccc;text-align:center;margin-top:4px;word-break:break-word;line-height:1.2;max-width:68px}
-
-/* About */
-.about-body{display:flex;flex-direction:column;align-items:center;padding:24px;gap:12px;text-align:center}
-.about-body .logo{font-size:48px}
-.about-body h2{font-size:20px;font-weight:600;color:#fff;margin:0}
-.about-body .ver{color:#888;font-size:12px}
-.about-body .desc{color:#aaa;font-size:13px;line-height:1.5;max-width:300px}
-.about-body .copy{color:#666;font-size:11px;margin-top:8px}
-
-/* Market */
-.market-body{display:flex;flex-direction:column;height:100%;overflow:hidden}
-.market-header{padding:16px 20px 8px;flex-shrink:0}
-.market-header h2{font-size:20px;font-weight:600;margin:0 0 4px}
-.market-header .sub{color:#888;font-size:12px}
-.market-tabs{display:flex;gap:2px;padding:0 16px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
-.mktab{padding:8px 14px;border:none;background:transparent;color:#888;cursor:pointer;font-size:12px;border-radius:4px 4px 0 0}
-.mktab:hover{color:#ddd;background:rgba(255,255,255,.04)}
-.mktab.active{color:#fff;background:rgba(255,255,255,.08)}
-.market-grid{flex:1;overflow-y:auto;padding:12px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;align-content:start}
-.market-grid::-webkit-scrollbar{width:5px}
-.market-grid::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
-.mkcard{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:12px;cursor:default;transition:background .15s}
-.mkcard:hover{background:rgba(255,255,255,.08)}
-.mkcard .top{display:flex;align-items:center;gap:10px;margin-bottom:6px}
-.mkcard .top .ico{font-size:28px;width:36px;text-align:center}
-.mkcard .top .info{flex:1}
-.mkcard .top .info .name{font-size:13px;font-weight:500;color:#fff}
-.mkcard .top .info .dev{font-size:10px;color:#666}
-.mkcard .desc{font-size:11px;color:#999;line-height:1.4;margin-bottom:8px}
-.mkcard .btn{width:100%;padding:5px;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500;transition:background .15s}
-.mkcard .btn.install{background:rgba(0,120,215,.5);color:#fff}
-.mkcard .btn.install:hover{background:rgba(0,120,215,.7)}
-.mkcard .btn.installed{background:rgba(80,80,80,.3);color:#666;cursor:default}
-.mkcard .btn.uninstall{background:rgba(200,60,60,.3);color:#faa}
-.mkcard .btn.uninstall:hover{background:rgba(200,60,60,.5)}
-
-/* AI Chat */
-.chat-body{display:flex;flex-direction:column;height:100%}
-.chat-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
-.chat-msgs::-webkit-scrollbar{width:5px}
-.chat-msgs::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
-.chat-msg{max-width:85%;padding:8px 12px;border-radius:8px;font-size:13px;line-height:1.5;animation:fadeIn .2s ease;word-wrap:break-word}
-.chat-msg.user{background:rgba(0,120,215,.3);align-self:flex-end;border-radius:8px 8px 2px 8px}
-.chat-msg.ai{background:rgba(255,255,255,.06);align-self:flex-start;border-radius:8px 8px 8px 2px}
-.chat-msg .time{font-size:10px;color:#666;margin-top:4px;text-align:right}
-.typing-dots span{animation:dotBounce 1.2s infinite;opacity:0;font-size:18px;line-height:1}
-.typing-dots span:nth-child(1){animation-delay:0s}
-.typing-dots span:nth-child(2){animation-delay:.2s}
-.typing-dots span:nth-child(3){animation-delay:.4s}
-@keyframes dotBounce{0%,60%,100%{opacity:0}30%{opacity:1}}
-.chat-input-area{display:flex;align-items:center;gap:6px;padding:8px 10px;border-top:1px solid rgba(255,255,255,.06);flex-shrink:0}
-.chat-input-area input{flex:1;padding:8px 12px;border:none;border-radius:20px;background:rgba(255,255,255,.06);color:#fff;font-size:13px;outline:none}
-.chat-input-area input::placeholder{color:#555}
-.chat-input-area button{padding:8px 14px;border:none;border-radius:20px;background:linear-gradient(135deg,#6a11cb,#2575fc);color:#fff;cursor:pointer;font-size:13px}
-.chat-input-area button:hover{opacity:.85}
-
-/* Right-click context menu */
-#ctxMenu{position:fixed;background:rgba(25,25,40,.97);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:4px 0;z-index:99998;min-width:160px;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5)}
-#ctxMenu.open{display:block}
-.ctxItem{display:flex;align-items:center;gap:10px;padding:6px 14px;cursor:pointer;color:#ccc;font-size:12px;border:none;background:transparent;width:100%;text-align:left}
-.ctxItem:hover{background:rgba(255,255,255,.08);color:#fff}
-.ctxItem .shortcut{margin-left:auto;color:#666;font-size:11px}
-.ctxDivider{height:1px;background:rgba(255,255,255,.06);margin:4px 8px}
-
-/* Clock popup */
-#clockPopup{position:fixed;bottom:44px;right:8px;background:rgba(20,20,30,.95);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:16px;z-index:9998;display:none;min-width:200px;text-align:center;box-shadow:0 -4px 30px rgba(0,0,0,.5)}
-#clockPopup.open{display:block}
-#clockPopup .bigTime{font-size:36px;font-weight:200;color:#fff}
-#clockPopup .bigDate{font-size:14px;color:#aaa;margin-top:4px}
-
-/* Notifications / Toast */
-.toast{position:fixed;bottom:50px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);backdrop-filter:blur(8px);color:#fff;padding:8px 20px;border-radius:6px;font-size:13px;z-index:99999;pointer-events:none;animation:toastAnim .3s ease}
-@keyframes toastAnim{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
-.toast.fade{animation:toastFade .3s ease forwards}
-@keyframes toastFade{from{opacity:1}to{opacity:0;transform:translateX(-50%) translateY(-10px)}}
-
-/* Loading screen */
-#loading{position:fixed;top:0;left:0;right:0;bottom:0;background:#0a0a15;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;transition:opacity .5s}
-#loading.hidden{opacity:0;pointer-events:none}
-#loading .logo{font-size:56px;margin-bottom:16px}
-#loading h1{font-size:24px;font-weight:300;color:#fff;margin-bottom:8px}
-#loading .sub{color:#666;font-size:13px}
-#loading .bar{width:200px;height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:24px;overflow:hidden}
-#loading .barFill{height:100%;width:0%;background:linear-gradient(90deg,#6a11cb,#2575fc);border-radius:2px;transition:width .3s}
-
-/* Login screen */
-#loginScreen{position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#0a0a15 0%,#1a0533 50%,#0d1b3e 100%);z-index:99999;display:flex;align-items:center;justify-content:center;transition:opacity .5s}
-#loginScreen.hidden{opacity:0;pointer-events:none}
-#loginBox{background:rgba(20,20,35,.9);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:32px;width:340px;box-shadow:0 8px 40px rgba(0,0,0,.5);text-align:center}
-#loginBox .logo{font-size:40px;margin-bottom:8px}
-#loginBox h1{font-size:22px;font-weight:300;color:#fff;margin-bottom:4px}
-#loginBox .sub{color:#666;font-size:12px;margin-bottom:24px}
-#loginBox .field{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 14px;width:100%;color:#fff;font-size:14px;outline:none;margin-bottom:10px;transition:border .2s}
-#loginBox .field:focus{border-color:rgba(100,100,255,.4)}
-#loginBox .field::placeholder{color:#555}
-#loginBox .error{color:#f55;font-size:12px;min-height:18px;margin-bottom:8px}
-#loginBox .btn{width:100%;padding:10px;border:none;border-radius:6px;font-size:14px;cursor:pointer;background:linear-gradient(135deg,#6a11cb,#2575fc);color:#fff;font-weight:500;transition:opacity .2s}
-#loginBox .btn:hover{opacity:.85}
-#loginBox .btn:active{opacity:.7}
-#loginBox .toggle{margin-top:12px;font-size:12px;color:#666;cursor:pointer}
-#loginBox .toggle:hover{color:#aaa}
-#loginBox .caps{color:#ffa;font-size:11px;margin-bottom:6px;display:none}
-
-/* Animations */
-@keyframes fadeIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
-@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-.window{animation:fadeIn .2s ease}
-#startMenu.open{animation:slideUp .2s ease}
-</style>
-</head>
-<body>
-
-<div id="loginScreen">
-  <div id="loginBox">
-    <div class="logo">⬡</div>
-    <h1>Kilton</h1>
-    <div class="sub">Sign in to your account</div>
-    <div class="caps" id="capsWarn">⚠️ Caps Lock is ON</div>
-    <input class="field" id="loginUser" placeholder="Username" autocomplete="off" spellcheck="false">
-    <input class="field" id="loginPass" type="password" placeholder="Password" autocomplete="off">
-    <div class="error" id="loginError"></div>
-    <button class="btn" id="loginBtn">Sign In</button>
-    <div class="toggle" id="loginToggle">Don't have an account? Create one</div>
-  </div>
-</div>
-
-<div id="loading" class="hidden">
-  <div class="logo">⬡</div>
-  <h1>Kilton</h1>
-  <div class="sub">Loading your desktop...</div>
-  <div class="bar"><div class="barFill" id="loadBar"></div></div>
-</div>
-
-<div id="desktop">
-  <canvas id="bgCanvas"></canvas>
-  <div id="desktopWatermark">Kilton</div>
-  <div id="desktopIcons"></div>
-</div>
-
-<div id="startMenu">
-  <div id="startHeader">
-    <div class="avatar" id="startAvatar">🧑</div>
-    <div class="userInfo">
-      <div class="name" id="startUserName">User</div>
-      <div class="status">Online</div>
-    </div>
-  </div>
-  <div id="startApps"></div>
-  <div id="startFooter">
-    <button id="lockBtn">🔒 Lock</button>
-    <span style="flex:1"></span>
-    <button id="powerBtn">⏻ Power</button>
-  </div>
-</div>
-
-<div id="taskbar">
-  <button id="startBtn"><span class="logo">⬡</span> Start</button>
-  <div id="taskbarWindows"></div>
-  <div id="sysTray">
-    <span class="trayIcon">🔊</span>
-    <span class="trayIcon">📶</span>
-    <div id="clock">
-      <div class="time"></div>
-      <div class="date"></div>
-    </div>
-  </div>
-</div>
-
-<div id="ctxMenu"></div>
-<div id="clockPopup">
-  <div class="bigTime" id="popupTime"></div>
-  <div class="bigDate" id="popupDate"></div>
-</div>
-
-<script>
+﻿
 ;(function(){
 'use strict'
 
@@ -352,24 +49,24 @@ const REGISTERED_APPS = {}
 })()
 
 const BUILT_IN_APPS = [
-  { id:'market',   ico:'🛒', label:'Kilton Market' },
-  { id:'ai',       ico:'🤖', label:'Kilton AI' },
-  { id:'browser',  ico:'🌐', label:'Browser' },
-  { id:'explorer', ico:'📁', label:'File Explorer' },
-  { id:'computer', ico:'💻', label:'Computer' },
-  { id:'calculator',ico:'🔢', label:'Calculator' },
-  { id:'notepad',  ico:'📝', label:'Notepad' },
-  { id:'about',    ico:'⬡', label:'About Kilton' },
+  { id:'market',   ico:'рџ›’', label:'Kilton Market' },
+  { id:'ai',       ico:'рџ¤–', label:'Kilton AI' },
+  { id:'browser',  ico:'рџЊђ', label:'Browser' },
+  { id:'explorer', ico:'рџ“Ѓ', label:'File Explorer' },
+  { id:'computer', ico:'рџ’»', label:'Computer' },
+  { id:'calculator',ico:'рџ”ў', label:'Calculator' },
+  { id:'notepad',  ico:'рџ“ќ', label:'Notepad' },
+  { id:'about',    ico:'в¬Ў', label:'About Kilton' },
 ]
 
 const MARKET_APPS = [
-  { id:'snake',    ico:'🐍', label:'Snake Game',     desc:'Classic snake arcade game',  cat:'Games',   dev:'Kilton' },
-  { id:'tetris',   ico:'🧱', label:'Tetris',          desc:'Stack blocks and clear lines',cat:'Games',   dev:'Kilton' },
-  { id:'paint',    ico:'🎨', label:'Kilton Paint',    desc:'Simple drawing application',  cat:'Tools',   dev:'Kilton' },
-  { id:'terminal', ico:'💻', label:'Terminal',        desc:'Command line interface',      cat:'Tools',   dev:'Kilton' },
-  { id:'music',    ico:'🎵', label:'Music Player',    desc:'Play your uploaded music',    cat:'Media',   dev:'Kilton' },
-  { id:'chat',     ico:'💬', label:'Kilton Chat',     desc:'Local messaging app',         cat:'Social',  dev:'Kilton' },
-  { id:'settings', ico:'⚙️', label:'Settings',        desc:'System preferences',          cat:'System',  dev:'Kilton' },
+  { id:'snake',    ico:'рџђЌ', label:'Snake Game',     desc:'Classic snake arcade game',  cat:'Games',   dev:'Kilton' },
+  { id:'tetris',   ico:'рџ§±', label:'Tetris',          desc:'Stack blocks and clear lines',cat:'Games',   dev:'Kilton' },
+  { id:'paint',    ico:'рџЋЁ', label:'Kilton Paint',    desc:'Simple drawing application',  cat:'Tools',   dev:'Kilton' },
+  { id:'terminal', ico:'рџ’»', label:'Terminal',        desc:'Command line interface',      cat:'Tools',   dev:'Kilton' },
+  { id:'music',    ico:'рџЋµ', label:'Music Player',    desc:'Play your uploaded music',    cat:'Media',   dev:'Kilton' },
+  { id:'chat',     ico:'рџ’¬', label:'Kilton Chat',     desc:'Local messaging app',         cat:'Social',  dev:'Kilton' },
+  { id:'settings', ico:'вљ™пёЏ', label:'Settings',        desc:'System preferences',          cat:'System',  dev:'Kilton' },
 ]
 
 function getInstalledIds() {
@@ -432,7 +129,7 @@ function initDesktop() {
   desktopFiles.forEach(f => {
     const el = document.createElement('div')
     el.className = 'deskIcon'
-    const ico = f.type === 'folder' ? '📁' : getFileIcon(f.type, f.name)
+    const ico = f.type === 'folder' ? 'рџ“Ѓ' : getFileIcon(f.type, f.name)
     el.innerHTML = `<div class="icon">${ico}</div><div class="label">${f.name}</div>`
     el.addEventListener('dblclick', () => {
       if (f.type === 'folder') launchExplorer('Desktop/' + f.name)
@@ -486,7 +183,7 @@ function createWindow(opts) {
   const win = {
     id,
     title: opts.title || 'Window',
-    icon: opts.icon || '📄',
+    icon: opts.icon || 'рџ“„',
     width: opts.width || 500,
     height: opts.height || 400,
     x: opts.x || 100 + (id % 5) * 30,
@@ -516,9 +213,9 @@ function createWindow(opts) {
   tb.innerHTML = `<span class="winIcon">${win.icon}</span><span class="winTitle">${win.title}</span>`
 
   // Buttons
-  const btnMin = makeBtn('─', () => minimizeWindow(id))
-  const btnMax = makeBtn('☐', () => maximizeWindow(id))
-  const btnClose = makeBtn('✕', () => closeWindow(id))
+  const btnMin = makeBtn('в”Ђ', () => minimizeWindow(id))
+  const btnMax = makeBtn('вђ', () => maximizeWindow(id))
+  const btnClose = makeBtn('вњ•', () => closeWindow(id))
   btnClose.className = 'winBtn close'
   tb.appendChild(btnMin)
   tb.appendChild(btnMax)
@@ -752,14 +449,14 @@ function launchMarketApp(app) {
     case 'settings': launchSettings(); break
     default:
       const d = document.createElement('div'); d.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:40px;gap:16px;text-align:center'
-      d.innerHTML = `<div style="font-size:48px">${app.ico}</div><div style="font-size:18px;font-weight:500;color:#fff">${app.label}</div><div style="color:#888;font-size:13px;max-width:300px;line-height:1.5">${app.desc}</div><div style="color:#555;font-size:11px">by ${app.dev} · ${app.cat}</div>`
+      d.innerHTML = `<div style="font-size:48px">${app.ico}</div><div style="font-size:18px;font-weight:500;color:#fff">${app.label}</div><div style="color:#888;font-size:13px;max-width:300px;line-height:1.5">${app.desc}</div><div style="color:#555;font-size:11px">by ${app.dev} В· ${app.cat}</div>`
       createWindow({title:app.label, icon:app.ico, width:360, height:260, minWidth:280, minHeight:200, content:d})
   }
 }
 
 function launchSnake() {
   const G=20,SZ=15;const c=document.createElement('canvas');c.width=G*SZ;c.height=G*SZ+20;c.style.cssText='display:block;margin:auto;background:#111'
-  const ctx=c.getContext('2d');const w=createWindow({title:'Snake Game',icon:'🐍',width:G*SZ+20,height:G*SZ+80,minWidth:300,minHeight:340,content:c})
+  const ctx=c.getContext('2d');const w=createWindow({title:'Snake Game',icon:'рџђЌ',width:G*SZ+20,height:G*SZ+80,minWidth:300,minHeight:340,content:c})
   let snake=[{x:5,y:5}],dir={x:1,y:0},food={x:10,y:5},nextDir={x:1,y:0},score=0,high=parseInt(localStorage.getItem('kilton_snake_high')||'0'),dead=false,paused=false,speed=150
   function placeFood(){food={x:Math.floor(Math.random()*G),y:Math.floor(Math.random()*G)};if(snake.some(s=>s.x===food.x&&s.y===food.y))placeFood()}
   function step(){
@@ -795,24 +492,14 @@ function launchSnake() {
   c.addEventListener('click',()=>{if(dead){snake=[{x:5,y:5}];dir={x:1,y:0};nextDir={x:1,y:0};score=0;dead=false;paused=false;speed=150;clearInterval(w._interval);w._interval=setInterval(step,speed);placeFood();draw()}})
   // Touch controls
   let tx=0,ty=0;c.addEventListener('touchstart',e=>{const t=e.touches[0];tx=t.clientX;ty=t.clientY})
-  c.addEventListener('touchend',e=>{
-    if(dead){c.click();return}
-    const t=e.changedTouches[0];const dx=t.clientX-tx,dy=t.clientY-ty
-    if(Math.abs(dx)>Math.abs(dy)){
-      if(dx>0&&dir.x!==-1)nextDir={x:1,y:0}
-      else if(dx<0&&dir.x!==1)nextDir={x:-1,y:0}
-    }else{
-      if(dy>0&&dir.y!==-1)nextDir={x:0,y:1}
-      else if(dy<0&&dir.y!==1)nextDir={x:0,y:-1}
-    }
-  })
+  c.addEventListener('touchend',e=>{if(dead){c.click();return}const t=e.changedTouches[0];const dx=t.clientX-tx,dy=t.clientY-ty;if(Math.abs(dx)>Math.abs(dy)){if(dx>0&&dir.x!==-1)nextDir={x:1,y:0}else if(dx<0&&dir.x!==1)nextDir={x:-1,y:0}}else{if(dy>0&&dir.y!==-1)nextDir={x:0,y:1}else if(dy<0&&dir.y!==1)nextDir={x:0,y:-1}}})
   placeFood();draw();w._interval=setInterval(step,speed)
 }
 
 function launchTetris() {
   const COLS=10,ROWS=20,BS=24,SIDE=140
   const c=document.createElement('canvas');c.width=COLS*BS+SIDE;c.height=ROWS*BS;c.style.cssText='display:block;margin:auto;background:#111'
-  const ctx=c.getContext('2d');const w=createWindow({title:'Tetris',icon:'🧱',width:COLS*BS+SIDE+20,height:ROWS*BS+45,minWidth:380,minHeight:460,content:c})
+  const ctx=c.getContext('2d');const w=createWindow({title:'Tetris',icon:'рџ§±',width:COLS*BS+SIDE+20,height:ROWS*BS+45,minWidth:380,minHeight:460,content:c})
   const COLORS=['#00f0f0','#f0f000','#a000f0','#0000f0','#f0a000','#00f000','#f00000']
   const PIECES=[[[1,1,1,1]],[[1,1],[1,1]],[[1,0],[1,0],[1,1]],[[0,1],[0,1],[1,1]],[[1,0],[1,1],[0,1]],[[0,1],[1,1],[1,0]],[[1,1,1],[0,1,0]]]
   let board=Array.from({length:ROWS},()=>Array(COLS).fill(0))
@@ -852,7 +539,7 @@ function launchTetris() {
     if(next){next.forEach((r,dy)=>r.forEach((v,dx)=>{if(v){ctx.fillStyle=COLORS[PIECES.indexOf(next)]||'#66aaff';ctx.fillRect(sx+dx*16+20,205+dy*16,14,14)}}))}
     // Controls help
     ctx.fillStyle='#444';ctx.font='9px sans-serif';const hx=sx;const hy=ROWS*BS-80
-    const helps=['←→ Move','↑ Rotate','↓ Soft','Space Hard','P Pause','R Restart'];helps.forEach((h,i)=>{ctx.fillText(h,hx,hy+i*14)})
+    const helps=['в†ђв†’ Move','в†‘ Rotate','в†“ Soft','Space Hard','P Pause','R Restart'];helps.forEach((h,i)=>{ctx.fillText(h,hx,hy+i*14)})
     // Overlays
     if(paused&&!dead){ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,COLS*BS,ROWS*BS);ctx.fillStyle='#fff';ctx.font='22px sans-serif';ctx.fillText('PAUSED',COLS*BS/2-48,ROWS*BS/2-4)}
     if(dead){ctx.fillStyle='rgba(0,0,0,.75)';ctx.fillRect(0,0,COLS*BS,ROWS*BS);ctx.fillStyle='#f88';ctx.font='24px sans-serif';ctx.fillText('GAME OVER',COLS*BS/2-70,ROWS*BS/2-14);ctx.fillStyle='#aaa';ctx.font='12px sans-serif';ctx.fillText('Score: '+score+'  Best: '+high,COLS*BS/2-55,ROWS*BS/2+12);ctx.fillStyle='#888';ctx.font='11px sans-serif';ctx.fillText('Press R to restart',COLS*BS/2-55,ROWS*BS/2+32)}
@@ -879,14 +566,14 @@ function launchTetris() {
 function launchPaint() {
   const c = document.createElement('canvas'); c.width=400; c.height=300; c.style.cssText='display:block;margin:auto;background:#fff;cursor:crosshair'
   const ctx = c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,400,300)
-  const w = createWindow({title:'Kilton Paint', icon:'🎨', width:440, height:400, minWidth:380, minHeight:340, content:c})
+  const w = createWindow({title:'Kilton Paint', icon:'рџЋЁ', width:440, height:400, minWidth:380, minHeight:340, content:c})
   let drawing=false, color='#000', size=3
   const tbar = document.createElement('div'); tbar.style.cssText='display:flex;gap:4px;padding:4px;flex-wrap:wrap;flex-shrink:0'
   const colors=['#000','#f44','#fa0','#ff0','#0a0','#08f','#a0f','#fff','#888','#faa','#fc8','#ff8','#8f8','#8cf','#c8f']
   colors.forEach(c2=>{const b=document.createElement('button');b.style.cssText=`width:18px;height:18px;border:1px solid #555;border-radius:3px;background:${c2};cursor:pointer`;b.addEventListener('click',()=>color=c2);tbar.appendChild(b)})
   tbar.appendChild(document.createTextNode(' '))
-  const sizes=[1,3,6];sizes.forEach(s=>{const b=document.createElement('button');b.textContent='⬤';b.style.cssText=`font-size:${s*4+8}px;border:none;background:transparent;color:#aaa;cursor:pointer;padding:0 2px`;b.addEventListener('click',()=>size=s);tbar.appendChild(b)})
-  const clr=document.createElement('button');clr.textContent='🗑️';clr.style.cssText='border:none;background:transparent;cursor:pointer;font-size:14px;margin-left:auto';clr.addEventListener('click',()=>{ctx.fillStyle='#fff';ctx.fillRect(0,0,400,300)});tbar.appendChild(clr)
+  const sizes=[1,3,6];sizes.forEach(s=>{const b=document.createElement('button');b.textContent='в¬¤';b.style.cssText=`font-size:${s*4+8}px;border:none;background:transparent;color:#aaa;cursor:pointer;padding:0 2px`;b.addEventListener('click',()=>size=s);tbar.appendChild(b)})
+  const clr=document.createElement('button');clr.textContent='рџ—‘пёЏ';clr.style.cssText='border:none;background:transparent;cursor:pointer;font-size:14px;margin-left:auto';clr.addEventListener('click',()=>{ctx.fillStyle='#fff';ctx.fillRect(0,0,400,300)});tbar.appendChild(clr)
   w.contentEl.parentNode.insertBefore(tbar,w.contentEl); c.parentNode.style.borderRadius='0 0 7px 7px'
   function pos(e){const r=c.getBoundingClientRect();return{x:(e.clientX||e.touches[0].clientX)-r.left,y:(e.clientY||e.touches[0].clientY)-r.top}}
   c.addEventListener('mousedown',e=>{drawing=true;const p=pos(e);ctx.fillStyle=color;ctx.beginPath();ctx.arc(p.x,p.y,size/2,0,Math.PI*2);ctx.fill()})
@@ -901,18 +588,22 @@ function launchTerminal() {
   const prompt = document.createElement('span'); prompt.textContent='$ '; prompt.style.cssText='color:#0f0;font-family:monospace;font-size:13px'
   const input = document.createElement('input'); input.style.cssText='flex:1;border:none;outline:none;background:transparent;color:#0f0;font-family:monospace;font-size:13px'; input.autofocus=true
   inp.appendChild(prompt); inp.appendChild(input); d.appendChild(out); d.appendChild(inp)
-  const w = createWindow({title:'Terminal', icon:'💻', width:520, height:360, minWidth:350, minHeight:250, content:d})
+  const w = createWindow({title:'Terminal', icon:'рџ’»', width:520, height:360, minWidth:350, minHeight:250, content:d})
   out.innerHTML = 'Kilton Terminal v1.0<br>Type `help` for commands.<br>'
   function write(t){out.innerHTML+=t+'<br>';out.scrollTop=out.scrollHeight}
-  const cmds={help:'Commands: help, echo, date, whoami, ls, uname, clear, neofetch',echo:args=>args||'',date:()=>new Date().toString(),whoami:()=>currentUser||'user',uname:()=>'Kilton OS 1.0',neofetch:()=>'Kilton OS 1.0\nKernel: Kilton\nShell: built-in\nUser: '+(currentUser||'user')+'\nApps: '+(BUILT_IN_APPS.length+getInstalledIds().length),ls:()=>{const f=listDir('Desktop');return f.length?f.map(x=>x.name).join('<br>'):'(empty)'},clear:()=>{out.innerHTML=''}}
+  const cmds={help:'Commands: help, echo, date, whoami, ls, uname, clear, neofetch',echo:args=>args||'',date:()=>new Date().toString(),whoami:()=>currentUser||'user',uname:()=>'Kilton OS 1.0',neofetch:()=>'Kilton OS 1.0
+Kernel: Kilton
+Shell: built-in
+User: '+(currentUser||'user')+'
+Apps: '+(BUILT_IN_APPS.length+getInstalledIds().length),ls:()=>{const f=listDir('Desktop');return f.length?f.map(x=>x.name).join('<br>'):'(empty)'},clear:()=>{out.innerHTML=''}}
   input.addEventListener('keydown',e=>{if(e.key!=='Enter')return;const full=input.value;input.value='';write('$ '+full);const parts=full.trim().split(/\s+/);const cmd=parts[0].toLowerCase();const args=parts.slice(1).join(' ');if(cmd in cmds){const r=cmds[cmd](args);if(r!==undefined)write(r)}else if(cmd)write('Command not found: '+cmd)})
 }
 
 function launchMusicPlayer() {
   const d=document.createElement('div');d.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:30px;gap:12px;text-align:center'
   const input=document.createElement('input');input.type='file';input.accept='audio/*';input.style.cssText='display:none';d.appendChild(input)
-  d.innerHTML+=`<div style="font-size:40px">🎵</div><div style="font-size:16px;color:#aaa">Upload music to play</div><div style="font-size:12px;color:#666">Supports MP3, WAV, OGG</div><button id="mpUpload" style="padding:8px 20px;border:none;border-radius:6px;background:rgba(0,120,215,.5);color:#fff;cursor:pointer;font-size:13px">Choose File</button><div id="mpStatus" style="font-size:11px;color:#555;margin-top:8px"></div>`
-  createWindow({title:'Music Player', icon:'🎵', width:340, height:360, minWidth:280, minHeight:300, content:d})
+  d.innerHTML+=`<div style="font-size:40px">рџЋµ</div><div style="font-size:16px;color:#aaa">Upload music to play</div><div style="font-size:12px;color:#666">Supports MP3, WAV, OGG</div><button id="mpUpload" style="padding:8px 20px;border:none;border-radius:6px;background:rgba(0,120,215,.5);color:#fff;cursor:pointer;font-size:13px">Choose File</button><div id="mpStatus" style="font-size:11px;color:#555;margin-top:8px"></div>`
+  createWindow({title:'Music Player', icon:'рџЋµ', width:340, height:360, minWidth:280, minHeight:300, content:d})
   d.querySelector('#mpUpload').addEventListener('click',()=>input.click())
   input.addEventListener('change',()=>{const file=input.files[0];if(!file)return;const url=URL.createObjectURL(file);const au=document.createElement('audio');au.src=url;au.controls=true;au.style.cssText='width:80%;margin:8px 0';d.querySelector('#mpStatus').textContent='Playing: '+file.name;d.appendChild(au);au.play()})
 }
@@ -920,13 +611,13 @@ function launchMusicPlayer() {
 function launchChat() {
   const d=document.createElement('div');d.style.cssText='display:flex;flex-direction:column;height:100%'
   const msgs=document.createElement('div');msgs.style.cssText='flex:1;overflow-y:auto;padding:8px;font-size:13px;line-height:1.5'
-  const bot=['Hello!','How are you?','Nice to chat!','What are you working on?','I like your desktop setup!','Want to play a game? Open Snake!','Check the weather!','Try the Calculator app!','😊','👍']
+  const bot=['Hello!','How are you?','Nice to chat!','What are you working on?','I like your desktop setup!','Want to play a game? Open Snake!','Check the weather!','Try the Calculator app!','рџЉ','рџ‘Ќ']
   msgs.innerHTML='<div style="color:#888;margin-bottom:8px;font-size:11px">Kilton Chat - Local mode</div>'
   const inp=document.createElement('div');inp.style.cssText='display:flex;gap:6px;padding:6px 8px;border-top:1px solid rgba(255,255,255,.06)'
   const input=document.createElement('input');input.style.cssText='flex:1;padding:6px 10px;border:none;border-radius:16px;background:rgba(255,255,255,.06);color:#fff;outline:none;font-size:13px';input.placeholder='Type a message...'
   const btn=document.createElement('button');btn.textContent='Send';btn.style.cssText='padding:6px 14px;border:none;border-radius:16px;background:linear-gradient(135deg,#6a11cb,#2575fc);color:#fff;cursor:pointer;font-size:12px'
   inp.appendChild(input);inp.appendChild(btn);d.appendChild(msgs);d.appendChild(inp)
-  createWindow({title:'Kilton Chat', icon:'💬', width:360, height:400, minWidth:300, minHeight:300, content:d})
+  createWindow({title:'Kilton Chat', icon:'рџ’¬', width:360, height:400, minWidth:300, minHeight:300, content:d})
   function addMsg(who,text){const el=document.createElement('div');el.innerHTML=`<b style="color:${who==='You'?'#8af':'#f8a'}">${who}:</b> ${text}`;msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight}
   btn.addEventListener('click',()=>{const t=input.value.trim();if(!t)return;addMsg('You',t);input.value='';setTimeout(()=>addMsg('Bot',bot[Math.floor(Math.random()*bot.length)]),500+Math.random()*800)})
   input.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()})
@@ -935,24 +626,24 @@ function launchChat() {
 
 function launchSettings() {
   const d=document.createElement('div');d.style.cssText='display:flex;flex-direction:column;padding:20px;gap:12px;font-size:13px'
-  d.innerHTML=`<div style="font-size:16px;font-weight:500;margin-bottom:4px">⚙️ System Settings</div>`
+  d.innerHTML=`<div style="font-size:16px;font-weight:500;margin-bottom:4px">вљ™пёЏ System Settings</div>`
   function addRow(label,ctrl){const r=document.createElement('div');r.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)';r.innerHTML=`<span style="color:#aaa">${label}</span>`;r.appendChild(ctrl);d.appendChild(r)}
   // Username
   const uName=document.createElement('span');uName.style.cssText='color:#fff';uName.textContent=currentUser||'User';addRow('Username',uName)
   // Version
   const ver=document.createElement('span');ver.style.cssText='color:#888';ver.textContent='Kilton OS 1.0.0';addRow('OS Version',ver)
   // Theme toggle
-  const thm=document.createElement('button');thm.textContent='🎨 Default Dark';thm.style.cssText='padding:4px 12px;border:none;border-radius:4px;background:rgba(255,255,255,.1);color:#ddd;cursor:pointer;font-size:12px'
+  const thm=document.createElement('button');thm.textContent='рџЋЁ Default Dark';thm.style.cssText='padding:4px 12px;border:none;border-radius:4px;background:rgba(255,255,255,.1);color:#ddd;cursor:pointer;font-size:12px'
   thm.addEventListener('click',()=>showToast('More themes coming soon!'));addRow('Theme',thm)
   // Clear data
-  const clr=document.createElement('button');clr.textContent='🗑️ Clear All Data';clr.style.cssText='padding:4px 12px;border:none;border-radius:4px;background:rgba(200,60,60,.3);color:#faa;cursor:pointer;font-size:12px'
+  const clr=document.createElement('button');clr.textContent='рџ—‘пёЏ Clear All Data';clr.style.cssText='padding:4px 12px;border:none;border-radius:4px;background:rgba(200,60,60,.3);color:#faa;cursor:pointer;font-size:12px'
   clr.addEventListener('click',()=>{if(confirm('Clear all Kilton data? This cannot be undone.')){localStorage.clear();showToast('Data cleared. Refresh page.');setTimeout(()=>location.reload(),1000)}});addRow('Reset',clr)
   // App count
   const cnt=document.createElement('span');cnt.style.cssText='color:#fff';cnt.textContent=String(BUILT_IN_APPS.length+getInstalledIds().length);addRow('Apps installed',cnt)
   // Storage
   let size=0;try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('kilton_'))size+=localStorage.getItem(k).length*2}}catch(e){}
   const st=document.createElement('span');st.style.cssText='color:#fff';st.textContent=size>1024?(size/1024).toFixed(1)+' KB':size+' B';addRow('Storage used',st)
-  createWindow({title:'Settings', icon:'⚙️', width:400, height:380, minWidth:320, minHeight:300, content:d})
+  createWindow({title:'Settings', icon:'вљ™пёЏ', width:400, height:380, minWidth:320, minHeight:300, content:d})
 }
 
 // --- Launch App ---
@@ -988,14 +679,14 @@ function launchCalculator() {
   div.innerHTML = `
     <div class="calc-display"><div class="expr" id="calcExpr"></div><div class="result" id="calcResult">0</div></div>
     <div class="calc-grid">
-      <button class="clr" data-v="C">C</button><button data-v="±">±</button><button data-v="%">%</button><button class="op" data-v="÷">÷</button>
-      <button data-v="7">7</button><button data-v="8">8</button><button data-v="9">9</button><button class="op" data-v="×">×</button>
-      <button data-v="4">4</button><button data-v="5">5</button><button data-v="6">6</button><button class="op" data-v="-">−</button>
+      <button class="clr" data-v="C">C</button><button data-v="В±">В±</button><button data-v="%">%</button><button class="op" data-v="Г·">Г·</button>
+      <button data-v="7">7</button><button data-v="8">8</button><button data-v="9">9</button><button class="op" data-v="Г—">Г—</button>
+      <button data-v="4">4</button><button data-v="5">5</button><button data-v="6">6</button><button class="op" data-v="-">в€’</button>
       <button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button class="op" data-v="+">+</button>
       <button data-v="0" style="grid-column:span2">0</button><button data-v=".">.</button><button class="eq" data-v="=">=</button>
     </div>`
   const win = createWindow({
-    title:'Calculator', icon:'🔢', width:260, height:340, minWidth:220, minHeight:300, content:div
+    title:'Calculator', icon:'рџ”ў', width:260, height:340, minWidth:220, minHeight:300, content:div
   })
   let expr = '', result = '0', prev = '', op = ''
   const exprEl = div.querySelector('#calcExpr')
@@ -1005,9 +696,9 @@ function launchCalculator() {
     btn.addEventListener('click', () => {
       const v = btn.dataset.v
       if (v === 'C') { expr = ''; result = '0'; prev = ''; op = '' }
-      else if (v === '±') { result = String(-parseFloat(result)) }
+      else if (v === 'В±') { result = String(-parseFloat(result)) }
       else if (v === '%') { result = String(parseFloat(result)/100) }
-      else if (['+','-','×','÷'].includes(v)) {
+      else if (['+','-','Г—','Г·'].includes(v)) {
         if (prev) { compute() }
         op = v; prev = result; expr = prev + ' ' + v + ' '; result = '0'
       }
@@ -1027,8 +718,8 @@ function launchCalculator() {
     switch(op) {
       case '+': r = a + b; break
       case '-': r = a - b; break
-      case '×': r = a * b; break
-      case '÷': r = b !== 0 ? a / b : 'Error'; break
+      case 'Г—': r = a * b; break
+      case 'Г·': r = b !== 0 ? a / b : 'Error'; break
     }
     result = typeof r === 'number' ? String(parseFloat(r.toFixed(10))) : 'Error'
   }
@@ -1040,13 +731,13 @@ function launchNotepad() {
   div.className = 'notepad-body'
   div.innerHTML = `
     <div class="notepad-toolbar">
-      <button data-a="new">📄 New</button>
-      <button data-a="clear">🗑️ Clear</button>
+      <button data-a="new">рџ“„ New</button>
+      <button data-a="clear">рџ—‘пёЏ Clear</button>
       <span style="flex:1"></span>
-      <button data-a="info">ℹ️ ${document.querySelectorAll('.notepad-body textarea') ? 'Chars: 0' : ''}</button>
+      <button data-a="info">в„№пёЏ ${document.querySelectorAll('.notepad-body textarea') ? 'Chars: 0' : ''}</button>
     </div>
     <textarea placeholder="Start typing..." spellcheck="false"></textarea>`
-  const win = createWindow({title:'Notepad', icon:'📝', width:520, height:400, minWidth:300, minHeight:200, content:div})
+  const win = createWindow({title:'Notepad', icon:'рџ“ќ', width:520, height:400, minWidth:300, minHeight:200, content:div})
   const ta = div.querySelector('textarea')
   ta.addEventListener('input', () => {
     // Save to localStorage
@@ -1072,26 +763,26 @@ function launchExplorer(startDir) {
   div.className = 'explorer-body'
   div.innerHTML = `
     <div class="explorer-toolbar">
-      <button data-d="back">◀</button>
-      <button data-d="refresh">⟳</button>
-      <input class="addrBar" value="📁 ${dir}" readonly>
-      <button data-d="upload">📤 Upload</button>
+      <button data-d="back">в—Ђ</button>
+      <button data-d="refresh">вџі</button>
+      <input class="addrBar" value="рџ“Ѓ ${dir}" readonly>
+      <button data-d="upload">рџ“¤ Upload</button>
       <input type="file" id="fuInput" multiple style="display:none">
-      <button data-d="newFolder">📁 New Folder</button>
-      <button data-d="dlurl">🌐 Download URL</button>
-      <button data-d="paste" style="display:${CLIPBOARD.mode?'inline-flex':'none'}">📋 Paste</button>
+      <button data-d="newFolder">рџ“Ѓ New Folder</button>
+      <button data-d="dlurl">рџЊђ Download URL</button>
+      <button data-d="paste" style="display:${CLIPBOARD.mode?'inline-flex':'none'}">рџ“‹ Paste</button>
     </div>
     <div class="explorer-content">
       <div class="explorer-sidebar">
-        <button class="sideItem" data-s="Desktop"><span>🖥️</span> Desktop</button>
-        <button class="sideItem" data-s="Documents"><span>📂</span> Documents</button>
-        <button class="sideItem" data-s="Pictures"><span>🖼️</span> Pictures</button>
-        <button class="sideItem" data-s="Music"><span>🎵</span> Music</button>
-        <button class="sideItem" data-s="Downloads"><span>⬇️</span> Downloads</button>
+        <button class="sideItem" data-s="Desktop"><span>рџ–ҐпёЏ</span> Desktop</button>
+        <button class="sideItem" data-s="Documents"><span>рџ“‚</span> Documents</button>
+        <button class="sideItem" data-s="Pictures"><span>рџ–јпёЏ</span> Pictures</button>
+        <button class="sideItem" data-s="Music"><span>рџЋµ</span> Music</button>
+        <button class="sideItem" data-s="Downloads"><span>в¬‡пёЏ</span> Downloads</button>
       </div>
       <div class="explorer-files" id="explorerFiles"></div>
     </div>`
-  const win = createWindow({title:dir + ' - File Explorer', icon:'📁', width:640, height:440, minWidth:350, minHeight:250, content:div})
+  const win = createWindow({title:dir + ' - File Explorer', icon:'рџ“Ѓ', width:640, height:440, minWidth:350, minHeight:250, content:div})
   const filesEl = div.querySelector('#explorerFiles')
   const addrBar = div.querySelector('.addrBar')
   const fuInput = div.querySelector('#fuInput')
@@ -1128,7 +819,7 @@ function launchExplorer(startDir) {
     items.forEach(f => {
       const item = document.createElement('div')
       item.className = 'fileItem'
-      const ico = f.type === 'folder' ? '📁' : getFileIcon(f.type, f.name)
+      const ico = f.type === 'folder' ? 'рџ“Ѓ' : getFileIcon(f.type, f.name)
       item.draggable = true
       item.innerHTML = `<div class="ico">${ico}</div><div class="name">${f.name}</div>`
       item.addEventListener('dblclick', () => {
@@ -1180,13 +871,13 @@ function launchExplorer(startDir) {
     navStack.push(currentDir)
     currentDir = path
     ensureDir(getFS(), currentDir)
-    addrBar.value = '📁 ' + currentDir
+    addrBar.value = 'рџ“Ѓ ' + currentDir
     activateSidebar(currentDir)
     renderFiles()
   }
 
   div.querySelector('[data-d="back"]').addEventListener('click', () => {
-    if (navStack.length > 0) { currentDir = navStack.pop(); addrBar.value = '📁 ' + currentDir; activateSidebar(currentDir); renderFiles() }
+    if (navStack.length > 0) { currentDir = navStack.pop(); addrBar.value = 'рџ“Ѓ ' + currentDir; activateSidebar(currentDir); renderFiles() }
   })
   div.querySelector('[data-d="refresh"]').addEventListener('click', renderFiles)
 
@@ -1223,8 +914,8 @@ function launchExplorer(startDir) {
           const appId = 'installed_' + appName.toLowerCase().replace(/[^a-z0-9]/g,'_') + '_' + Date.now()
           REGISTERED_APPS[appId] = () => {
             const d = document.createElement('div'); d.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:40px;gap:16px;text-align:center'
-            d.innerHTML = `<div style="font-size:48px">⚙️</div><div style="font-size:18px;font-weight:500;color:#fff">${appName}</div><div style="color:#888;font-size:13px;max-width:300px">Downloaded app</div>`
-            createWindow({title:appName, icon:'⚙️', width:360, height:240, content:d})
+            d.innerHTML = `<div style="font-size:48px">вљ™пёЏ</div><div style="font-size:18px;font-weight:500;color:#fff">${appName}</div><div style="color:#888;font-size:13px;max-width:300px">Downloaded app</div>`
+            createWindow({title:appName, icon:'вљ™пёЏ', width:360, height:240, content:d})
           }
           launchApp(appId)
           showToast('Installed app: ' + appName)
@@ -1275,7 +966,7 @@ function launchExplorer(startDir) {
   div.querySelectorAll('.sideItem').forEach(btn => {
     btn.addEventListener('click', () => {
       const name = btn.dataset.s
-      currentDir = name; addrBar.value = '📁 ' + name; navStack = []; activateSidebar(name); renderFiles()
+      currentDir = name; addrBar.value = 'рџ“Ѓ ' + name; navStack = []; activateSidebar(name); renderFiles()
     })
   })
 
@@ -1298,19 +989,19 @@ function openFile(dir, name) {
   } else if (cont.startsWith('data:image/')) {
     const img = document.createElement('img'); img.src = cont; img.style.cssText = 'max-width:100%;max-height:100%;display:block;margin:auto;object-fit:contain'
     const c = document.createElement('div'); c.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;padding:10px'; c.appendChild(img)
-    createWindow({title:name, icon:'🖼️', width:500, height:400, content:c})
+    createWindow({title:name, icon:'рџ–јпёЏ', width:500, height:400, content:c})
   } else if (cont.startsWith('data:audio/')) {
     const au = document.createElement('audio'); au.src = cont; au.controls = true; au.style.cssText = 'width:80%;margin:auto'
     const c = document.createElement('div'); c.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;padding:20px'; c.appendChild(au)
-    createWindow({title:name, icon:'🎵', width:400, height:120, content:c})
+    createWindow({title:name, icon:'рџЋµ', width:400, height:120, content:c})
   } else if (cont.startsWith('data:video/')) {
     const vi = document.createElement('video'); vi.src = cont; vi.controls = true; vi.style.cssText = 'max-width:100%;max-height:100%;display:block;margin:auto'
     const c = document.createElement('div'); c.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;padding:10px'; c.appendChild(vi)
-    createWindow({title:name, icon:'🎬', width:560, height:380, minWidth:300, minHeight:200, content:c})
+    createWindow({title:name, icon:'рџЋ¬', width:560, height:380, minWidth:300, minHeight:200, content:c})
   } else {
     const d = document.createElement('div'); d.style.cssText = 'padding:20px;color:#aaa;font-size:13px;line-height:1.6'
     d.innerHTML = `<b>${name}</b><br>Type: ${f.type || 'unknown'}<br>Size: ${formatSize(f.size)}<br>Content: ${cont.substring(0,200)}...`
-    createWindow({title:name, icon:'📄', width:400, height:200, content:d})
+    createWindow({title:name, icon:'рџ“„', width:400, height:200, content:d})
   }
 }
 
@@ -1318,20 +1009,20 @@ function showFileContextMenu(x, y, dir, fileName) {
   const menu = document.getElementById('ctxMenu')
   menu.innerHTML = ''
   const items = [
-    {ico:'📂', label:'Open', fn:() => openFile(dir, fileName)},
+    {ico:'рџ“‚', label:'Open', fn:() => openFile(dir, fileName)},
     {divider:true},
-    {ico:'📋', label:'Copy', fn:() => {
+    {ico:'рџ“‹', label:'Copy', fn:() => {
       CLIPBOARD.mode = 'copy'; CLIPBOARD.srcDir = dir; CLIPBOARD.name = fileName
       showToast('Copied: ' + fileName)
       // Update all paste buttons
       document.querySelectorAll('[data-d="paste"]').forEach(b => b.style.display = 'inline-flex')
     }},
-    {ico:'✂️', label:'Cut', fn:() => {
+    {ico:'вњ‚пёЏ', label:'Cut', fn:() => {
       CLIPBOARD.mode = 'cut'; CLIPBOARD.srcDir = dir; CLIPBOARD.name = fileName
       showToast('Cut: ' + fileName)
       document.querySelectorAll('[data-d="paste"]').forEach(b => b.style.display = 'inline-flex')
     }},
-    {ico:'📋', label:'Paste', fn:() => {
+    {ico:'рџ“‹', label:'Paste', fn:() => {
       if (!CLIPBOARD.mode || !CLIPBOARD.srcDir || !CLIPBOARD.name) { showToast('Nothing to paste'); return }
       if (CLIPBOARD.mode === 'copy') copyItem(CLIPBOARD.srcDir, CLIPBOARD.name, dir)
       else moveItem(CLIPBOARD.srcDir, CLIPBOARD.name, dir)
@@ -1340,18 +1031,18 @@ function showFileContextMenu(x, y, dir, fileName) {
       showToast('Pasted successfully'); refreshAllExplorers()
     }},
     {divider:true},
-    {ico:'📛', label:'Rename', fn:() => {
+    {ico:'рџ“›', label:'Rename', fn:() => {
       const newName = prompt('Rename to:', fileName)
       if (newName && newName.trim() && newName.trim() !== fileName) { renameItem(dir, fileName, newName.trim()); refreshAllExplorers() }
     }},
-    {ico:'📦', label:'Compress to ZIP', fn:() => {
+    {ico:'рџ“¦', label:'Compress to ZIP', fn:() => {
       compressToZip(dir, fileName)
     }},
-    {ico:'🗑️', label:'Delete', fn:() => {
+    {ico:'рџ—‘пёЏ', label:'Delete', fn:() => {
       if (confirm('Delete ' + fileName + '?')) { deleteItem(dir, fileName); refreshAllExplorers() }
     }},
     {divider:true},
-    {ico:'ℹ️', label:'Properties'},
+    {ico:'в„№пёЏ', label:'Properties'},
   ]
   renderContextMenu(menu, items)
   positionContextMenu(menu, x, y)
@@ -1375,13 +1066,13 @@ function launchAbout() {
   const div = document.createElement('div')
   div.className = 'about-body'
   div.innerHTML = `
-    <div class="logo">⬡</div>
+    <div class="logo">в¬Ў</div>
     <h2>Kilton OS</h2>
     <div class="ver">Version 1.0.0</div>
     <div class="desc">A web-based desktop environment inspired by Windows. Built with HTML, CSS, and JavaScript.</div>
-    <div class="desc" style="font-size:11px;color:#666">© 2026 Kilton. All rights reserved.</div>
-    <div class="copy">Made with ❤️</div>`
-  createWindow({title:'About Kilton', icon:'⬡', width:380, height:300, minWidth:300, minHeight:250, content:div})
+    <div class="desc" style="font-size:11px;color:#666">В© 2026 Kilton. All rights reserved.</div>
+    <div class="copy">Made with вќ¤пёЏ</div>`
+  createWindow({title:'About Kilton', icon:'в¬Ў', width:380, height:300, minWidth:300, minHeight:250, content:div})
 }
 
 // --- Market ---
@@ -1390,20 +1081,20 @@ function launchMarket() {
   div.className = 'market-body'
   div.innerHTML = `
     <div class="market-header">
-      <h2>🛒 Kilton Market</h2>
+      <h2>рџ›’ Kilton Market</h2>
       <div class="sub">Discover and install apps for your desktop</div>
     </div>
     <div class="market-tabs" id="marketTabs">
       <button class="mktab active" data-cat="all">All</button>
-      <button class="mktab" data-cat="Games">🎮 Games</button>
-      <button class="mktab" data-cat="Tools">🔧 Tools</button>
-      <button class="mktab" data-cat="Utility">📱 Utility</button>
-      <button class="mktab" data-cat="Media">🎵 Media</button>
-      <button class="mktab" data-cat="Social">💬 Social</button>
-      <button class="mktab" data-cat="System">⚙️ System</button>
+      <button class="mktab" data-cat="Games">рџЋ® Games</button>
+      <button class="mktab" data-cat="Tools">рџ”§ Tools</button>
+      <button class="mktab" data-cat="Utility">рџ“± Utility</button>
+      <button class="mktab" data-cat="Media">рџЋµ Media</button>
+      <button class="mktab" data-cat="Social">рџ’¬ Social</button>
+      <button class="mktab" data-cat="System">вљ™пёЏ System</button>
     </div>
     <div class="market-grid" id="marketGrid"></div>`
-  createWindow({title:'Kilton Market', icon:'🛒', width:620, height:480, minWidth:400, minHeight:350, content:div})
+  createWindow({title:'Kilton Market', icon:'рџ›’', width:620, height:480, minWidth:400, minHeight:350, content:div})
 
   const grid = div.querySelector('#marketGrid')
   const tabs = div.querySelectorAll('.mktab')
@@ -1422,12 +1113,12 @@ function launchMarket() {
           <div class="ico">${a.ico}</div>
           <div class="info">
             <div class="name">${a.label}</div>
-            <div class="dev">${a.dev} · ${a.cat}</div>
+            <div class="dev">${a.dev} В· ${a.cat}</div>
           </div>
         </div>
         <div class="desc">${a.desc}</div>
         <div style="display:flex;gap:4px">
-          ${installed ? `<button class="btn install" data-id="${a.id}" style="flex:1">▶ Open</button><button class="btn uninstall" data-id="${a.id}" style="flex:0;padding:5px 8px">✕</button>` : `<button class="btn install" data-id="${a.id}" style="flex:1">+ Install</button>`}
+          ${installed ? `<button class="btn install" data-id="${a.id}" style="flex:1">в–¶ Open</button><button class="btn uninstall" data-id="${a.id}" style="flex:0;padding:5px 8px">вњ•</button>` : `<button class="btn install" data-id="${a.id}" style="flex:1">+ Install</button>`}
         </div>`
       card.querySelectorAll('.btn').forEach(b => b.addEventListener('click', () => {
         if (isInstalled(a.id) && b.classList.contains('uninstall')) { uninstallApp(a.id); renderMarket(); rebuildDesktop() }
@@ -1452,27 +1143,27 @@ function launchBrowser(url) {
   div.style.cssText = 'display:flex;flex-direction:column;height:100%'
   div.innerHTML = `
     <div style="display:flex;align-items:center;gap:4px;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0">
-      <button data-b="back" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:13px">◀</button>
-      <button data-b="fwd" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:13px">▶</button>
-      <button data-b="ref" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:13px">⟳</button>
+      <button data-b="back" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:13px">в—Ђ</button>
+      <button data-b="fwd" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:13px">в–¶</button>
+      <button data-b="ref" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:13px">вџі</button>
       <div style="flex:1;display:flex;align-items:center;gap:4px;background:rgba(0,0,0,.3);border-radius:20px;padding:4px 12px">
-        <span style="color:#666;font-size:11px">🔒</span>
+        <span style="color:#666;font-size:11px">рџ”’</span>
         <input id="browserUrl" style="flex:1;border:none;outline:none;background:transparent;color:#ddd;font-size:12px" placeholder="Search or enter URL" spellcheck="false">
       </div>
-      <button data-b="dl" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:13px" title="Download to Kilton">📥</button>
-      <button data-b="ext" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:12px">↗</button>
+      <button data-b="dl" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:13px" title="Download to Kilton">рџ“Ґ</button>
+      <button data-b="ext" style="padding:3px 8px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:3px;font-size:12px">в†—</button>
     </div>
     <div style="flex:1;position:relative;background:#fff">
       <iframe id="browserFrame" style="width:100%;height:100%;border:none" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
       <div id="browserFallback" style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(20,20,30,.98);padding:40px;text-align:center;flex-direction:column;align-items:center;justify-content:center;gap:16px">
-        <div style="font-size:40px">🌐</div>
+        <div style="font-size:40px">рџЊђ</div>
         <div style="font-size:18px;font-weight:300;color:#fff">This site can't be embedded</div>
         <div style="color:#888;font-size:13px;max-width:400px;line-height:1.5">Some websites block being displayed inside other pages.</div>
-        <button id="browserOpenTab" style="padding:8px 24px;border:none;border-radius:6px;background:linear-gradient(135deg,#6a11cb,#2575fc);color:#fff;font-size:14px;cursor:pointer">Open in new tab →</button>
+        <button id="browserOpenTab" style="padding:8px 24px;border:none;border-radius:6px;background:linear-gradient(135deg,#6a11cb,#2575fc);color:#fff;font-size:14px;cursor:pointer">Open in new tab в†’</button>
         <button id="browserSearch" style="padding:6px 16px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:transparent;color:#aaa;font-size:12px;cursor:pointer;margin-top:4px">Search Google instead</button>
       </div>
     </div>`
-  const win = createWindow({title:'Browser', icon:'🌐', width:750, height:500, minWidth:400, minHeight:300, content:div})
+  const win = createWindow({title:'Browser', icon:'рџЊђ', width:750, height:500, minWidth:400, minHeight:300, content:div})
 
   const frame = div.querySelector('#browserFrame')
   const urlInput = div.querySelector('#browserUrl')
@@ -1567,8 +1258,8 @@ function launchBrowser(url) {
             const appId = 'installed_' + appName.toLowerCase().replace(/[^a-z0-9]/g,'_') + '_' + Date.now()
             REGISTERED_APPS[appId] = () => {
               const d = document.createElement('div'); d.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:40px;gap:16px;text-align:center'
-              d.innerHTML = `<div style="font-size:48px">⚙️</div><div style="font-size:18px;font-weight:500;color:#fff">${appName}</div><div style="color:#888;font-size:13px;max-width:300px">Installed from browser</div>`
-              createWindow({title:appName, icon:'⚙️', width:360, height:240, content:d})
+              d.innerHTML = `<div style="font-size:48px">вљ™пёЏ</div><div style="font-size:18px;font-weight:500;color:#fff">${appName}</div><div style="color:#888;font-size:13px;max-width:300px">Installed from browser</div>`
+              createWindow({title:appName, icon:'вљ™пёЏ', width:360, height:240, content:d})
             }
             launchApp(appId); showToast('Installed: ' + appName)
           } else {
@@ -1584,7 +1275,7 @@ function launchBrowser(url) {
         }
         reader.readAsDataURL(blob)
       }).catch(() => {
-        showToast('Blocked by CORS - use ↗ to download externally')
+        showToast('Blocked by CORS - use в†— to download externally')
       })
     } else {
       // Save page link
@@ -1611,18 +1302,18 @@ function launchAI() {
   div.className = 'chat-body'
   div.innerHTML = `
     <div style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:8px;flex-shrink:0">
-      <span style="font-size:18px">🤖</span>
+      <span style="font-size:18px">рџ¤–</span>
       <span style="font-weight:500;font-size:13px">Kilton AI</span>
       <span style="color:#666;font-size:11px">Assistant</span>
       <span style="flex:1"></span>
-      <button id="aiClear" style="padding:2px 8px;border:none;border-radius:4px;background:rgba(255,255,255,.06);color:#888;cursor:pointer;font-size:11px" title="Clear chat">🗑️</button>
+      <button id="aiClear" style="padding:2px 8px;border:none;border-radius:4px;background:rgba(255,255,255,.06);color:#888;cursor:pointer;font-size:11px" title="Clear chat">рџ—‘пёЏ</button>
     </div>
     <div class="chat-msgs" id="chatMessages"></div>
     <div class="chat-input-area">
       <input id="chatInput" placeholder="Ask me anything..." spellcheck="false">
       <button id="chatSend">Send</button>
     </div>`
-  const win = createWindow({title:'Kilton AI', icon:'🤖', width:460, height:540, minWidth:320, minHeight:350, content:div})
+  const win = createWindow({title:'Kilton AI', icon:'рџ¤–', width:460, height:540, minWidth:320, minHeight:350, content:div})
 
   const msgsEl = div.querySelector('#chatMessages')
   const inputEl = div.querySelector('#chatInput')
@@ -1635,7 +1326,8 @@ function launchAI() {
     const t = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
     const el = document.createElement('div')
     el.className = 'chat-msg ' + role
-    el.innerHTML = text.replace(/\n/g, '<br>') + `<div class="time">${t}</div>`
+    el.innerHTML = text.replace(/
+/g, '<br>') + `<div class="time">${t}</div>`
     msgsEl.appendChild(el)
     msgsEl.scrollTop = msgsEl.scrollHeight
     chatHistory.push({ role, text })
@@ -1665,16 +1357,16 @@ function launchAI() {
       // Check for exact app name match
       for (const [name, id] of Object.entries(apps)) {
         if (target === name || target === id || target.includes(name)) {
-          try { launchApp(id); return `✅ Opening **${name}**...` } catch(e) { return `❌ Could not open ${name}` }
+          try { launchApp(id); return `вњ… Opening **${name}**...` } catch(e) { return `вќЊ Could not open ${name}` }
         }
       }
       // Try partial match
       for (const [name, id] of Object.entries(apps)) {
         if (name.includes(target) || id.includes(target)) {
-          try { launchApp(id); return `✅ Opening **${name}**...` } catch(e) { return `❌ Could not open ${name}` }
+          try { launchApp(id); return `вњ… Opening **${name}**...` } catch(e) { return `вќЊ Could not open ${name}` }
         }
       }
-      return `❌ App "${target}" not found. Try: browser, market, explorer, calculator, notepad, terminal, paint, snake, tetris, chat, music, settings`
+      return `вќЊ App "${target}" not found. Try: browser, market, explorer, calculator, notepad, terminal, paint, snake, tetris, chat, music, settings`
     }
 
     // --- Close window ---
@@ -1684,16 +1376,16 @@ function launchAI() {
         for (const [name, id] of Object.entries(apps)) {
           if (target === name || target === id || target.includes(name) || name.includes(target)) {
             const w = STATE.windows.find(w => w.title.toLowerCase().includes(name))
-            if (w) { closeWindow(w.id); return `✅ Closed **${name}**` }
-            return `ℹ️ No open window for **${name}**`
+            if (w) { closeWindow(w.id); return `вњ… Closed **${name}**` }
+            return `в„№пёЏ No open window for **${name}**`
           }
         }
-        return `❌ App "${target}" not found`
+        return `вќЊ App "${target}" not found`
       }
       // Close active/focused window
       const focused = STATE.windows.find(w => w.el && w.el.style.zIndex === String(STATE.maxZ))
-      if (focused) { closeWindow(focused.id); return `✅ Closed **${focused.title}**` }
-      return 'ℹ️ No windows open'
+      if (focused) { closeWindow(focused.id); return `вњ… Closed **${focused.title}**` }
+      return 'в„№пёЏ No windows open'
     }
 
     // --- Minimize window ---
@@ -1702,13 +1394,13 @@ function launchAI() {
       for (const [name, id] of Object.entries(apps)) {
         if (target && (target === name || target === id || name.includes(target))) {
           const w = STATE.windows.find(w => w.title.toLowerCase().includes(name))
-          if (w) { minimizeWindow(w.id); return `✅ Minimized **${name}**` }
-          return `ℹ️ No open window for **${name}**`
+          if (w) { minimizeWindow(w.id); return `вњ… Minimized **${name}**` }
+          return `в„№пёЏ No open window for **${name}**`
         }
       }
       const focused = STATE.windows.find(w => w.el && w.el.style.zIndex === String(STATE.maxZ))
-      if (focused) { minimizeWindow(focused.id); return `✅ Minimized **${focused.title}**` }
-      return 'ℹ️ No windows open'
+      if (focused) { minimizeWindow(focused.id); return `вњ… Minimized **${focused.title}**` }
+      return 'в„№пёЏ No windows open'
     }
 
     // --- List files ---
@@ -1717,10 +1409,10 @@ function launchAI() {
       const dir = dirs.find(d => lower.includes(d.toLowerCase()))
       const targetDir = dir || 'Desktop'
       const files = listDir(targetDir)
-      if (!files.length) return `📁 **${targetDir}** is empty.`
-      let result = `📁 **${targetDir}**:<br>`
+      if (!files.length) return `рџ“Ѓ **${targetDir}** is empty.`
+      let result = `рџ“Ѓ **${targetDir}**:<br>`
       files.forEach(f => {
-        const ico = f.type === 'folder' ? '📁' : getFileIcon(f.type, f.name)
+        const ico = f.type === 'folder' ? 'рџ“Ѓ' : getFileIcon(f.type, f.name)
         result += `${ico} ${f.name}<br>`
       })
       return result
@@ -1729,16 +1421,16 @@ function launchAI() {
     // --- Search files ---
     if (lower.includes('find ') || lower.includes('search files') || lower.includes('search for ')) {
       const query = input.replace(/find |search for |search files |search /gi, '').trim().toLowerCase()
-      if (!query) return '🔍 What file are you looking for?'
+      if (!query) return 'рџ”Ќ What file are you looking for?'
       const fs = getFS()
       let results = []
       Object.keys(fs).forEach(dir => {
         fs[dir].forEach(f => {
-          if (f.name.toLowerCase().includes(query)) results.push(`📁 ${dir} → ${f.name}`)
+          if (f.name.toLowerCase().includes(query)) results.push(`рџ“Ѓ ${dir} в†’ ${f.name}`)
         })
       })
-      if (!results.length) return `🔍 No files matching "${query}"`
-      return `🔍 Found ${results.length} file(s):<br>${results.slice(0,15).join('<br>')}`
+      if (!results.length) return `рџ”Ќ No files matching "${query}"`
+      return `рџ”Ќ Found ${results.length} file(s):<br>${results.slice(0,15).join('<br>')}`
     }
 
     // --- Read file ---
@@ -1749,12 +1441,13 @@ function launchAI() {
       for (const dir of Object.keys(fs)) {
         const f = fs[dir].find(x => x.name.toLowerCase().includes(target.toLowerCase()))
         if (f) {
-          if (f.type === 'folder') return `📁 **${f.name}** is a folder. Use \`list files\` to see contents.`
+          if (f.type === 'folder') return `рџ“Ѓ **${f.name}** is a folder. Use \`list files\` to see contents.`
           const cont = (f.content || '').substring(0, 300)
-          return `📄 **${f.name}** (${dir}):<br><span style="color:#aaa;font-size:11px">${cont.replace(/\n/g,'<br>')}</span>`
+          return `рџ“„ **${f.name}** (${dir}):<br><span style="color:#aaa;font-size:11px">${cont.replace(/
+/g,'<br>')}</span>`
         }
       }
-      return `❌ File "${target}" not found`
+      return `вќЊ File "${target}" not found`
     }
 
     // --- Delete file ---
@@ -1766,22 +1459,22 @@ function launchAI() {
         const idx = fs[dir].findIndex(x => x.name.toLowerCase() === target.toLowerCase())
         if (idx !== -1) {
           deleteItem(dir, fs[dir][idx].name); refreshAllExplorers()
-          return `✅ Deleted **${fs[dir][idx].name}** from ${dir}`
+          return `вњ… Deleted **${fs[dir][idx].name}** from ${dir}`
         }
       }
-      return `❌ File "${target}" not found`
+      return `вќЊ File "${target}" not found`
     }
 
     // --- Calculator / Math ---
     const mathMatch = lower.match(/^(calculate|calc|math|what is|what's)\s+(.+)/)
     if (mathMatch || lower.match(/^[\d\s+\-*/().%^]+$/)) {
-      const expr = (mathMatch ? mathMatch[2] : lower).replace(/×/g,'*').replace(/÷/g,'/').replace(/x/g,'*').replace(/ /g,'')
+      const expr = (mathMatch ? mathMatch[2] : lower).replace(/Г—/g,'*').replace(/Г·/g,'/').replace(/x/g,'*').replace(/ /g,'')
       const safe = expr.replace(/[\d+\-*/().%]/g,'')
       if (!safe && expr.length > 0) {
         try {
           // Safety: only eval math expressions
           const result = Function('"use strict"; return (' + expr + ')')()
-          if (typeof result === 'number' && !isNaN(result)) return `🧮 **${expr}** = **${result}**`
+          if (typeof result === 'number' && !isNaN(result)) return `рџ§® **${expr}** = **${result}**`
         } catch(e) {}
       }
     }
@@ -1791,17 +1484,17 @@ function launchAI() {
       let size = 0
       try { for (let i=0;i<localStorage.length;i++) { const k=localStorage.key(i); if (k&&k.startsWith('kilton_')) size+=localStorage.getItem(k).length*2 } } catch(e) {}
       const sizeStr = size > 1024 ? (size/1024).toFixed(1) + ' KB' : size + ' B'
-      return `💻 **Kilton OS**<br>User: **${currentUser||'guest'}**<br>Apps: ${BUILT_IN_APPS.length + getInstalledIds().length} (${getInstalledIds().length} installed)<br>Windows open: ${STATE.windows.length}<br>Storage: ${sizeStr}<br>Version: 1.0.0`
+      return `рџ’» **Kilton OS**<br>User: **${currentUser||'guest'}**<br>Apps: ${BUILT_IN_APPS.length + getInstalledIds().length} (${getInstalledIds().length} installed)<br>Windows open: ${STATE.windows.length}<br>Storage: ${sizeStr}<br>Version: 1.0.0`
     }
 
     // --- Time & Date ---
     if (lower.includes('time') || lower.includes('clock')) {
       const now = new Date()
-      return '🕐 **' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}) + '**'
+      return 'рџ•ђ **' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}) + '**'
     }
     if (lower.includes('date') || lower.includes('today')) {
       const now = new Date()
-      return '📅 **' + now.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric',year:'numeric'}) + '**'
+      return 'рџ“… **' + now.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric',year:'numeric'}) + '**'
     }
 
     // --- Create file ---
@@ -1811,8 +1504,8 @@ function launchAI() {
       try {
         createFile('Desktop', name, 'text', 'Created by Kilton AI on ' + new Date().toLocaleString())
         refreshAllExplorers()
-        return '✅ Created **' + name + '** on Desktop'
-      } catch(e) { return '❌ Could not create file' }
+        return 'вњ… Created **' + name + '** on Desktop'
+      } catch(e) { return 'вќЊ Could not create file' }
     }
 
     // --- Create folder ---
@@ -1821,8 +1514,8 @@ function launchAI() {
       try {
         createFolder('Desktop', name)
         refreshAllExplorers()
-        return '✅ Created folder **' + name + '** on Desktop'
-      } catch(e) { return '❌ Could not create folder' }
+        return 'вњ… Created folder **' + name + '** on Desktop'
+      } catch(e) { return 'вќЊ Could not create folder' }
     }
 
     // --- Rename ---
@@ -1833,9 +1526,9 @@ function launchAI() {
         const fs = getFS()
         for (const dir of Object.keys(fs)) {
           const f = fs[dir].find(x => x.name.toLowerCase() === oldName.toLowerCase())
-          if (f) { renameItem(dir, f.name, newName); refreshAllExplorers(); return `✅ Renamed **${oldName}** → **${newName}**` }
+          if (f) { renameItem(dir, f.name, newName); refreshAllExplorers(); return `вњ… Renamed **${oldName}** в†’ **${newName}**` }
         }
-        return `❌ File "${oldName}" not found`
+        return `вќЊ File "${oldName}" not found`
       }
       return 'Usage: rename [oldname] to [newname]'
     }
@@ -1846,16 +1539,16 @@ function launchAI() {
       const searchQuery = installMatch ? installMatch[1].trim() : lower.replace(/search market|find app|find /gi, '').trim()
       if (searchQuery) {
         const found = MARKET_APPS.filter(a => a.label.toLowerCase().includes(searchQuery) || a.desc.toLowerCase().includes(searchQuery) || a.cat.toLowerCase().includes(searchQuery))
-        if (found.length === 0) return `🔍 No apps matching "${searchQuery}" in Market`
+        if (found.length === 0) return `рџ”Ќ No apps matching "${searchQuery}" in Market`
         if (found.length === 1 && installMatch) {
           // Install directly
           const ids = getInstalledIds()
-          if (ids.includes(found[0].id)) return `✅ **${found[0].label}** is already installed`
+          if (ids.includes(found[0].id)) return `вњ… **${found[0].label}** is already installed`
           ids.push(found[0].id); saveInstalledIds(ids); refreshAllExplorers(); initDesktop()
-          return `✅ Installed **${found[0].label}**! Find it on your Desktop or Start Menu`
+          return `вњ… Installed **${found[0].label}**! Find it on your Desktop or Start Menu`
         }
-        let result = `🔍 Found ${found.length} app(s):<br>`
-        found.forEach(a => result += `${a.ico} **${a.label}** — ${a.cat}<br>`)
+        let result = `рџ”Ќ Found ${found.length} app(s):<br>`
+        found.forEach(a => result += `${a.ico} **${a.label}** вЂ” ${a.cat}<br>`)
         result += '<br>Use `install [app name]` to install one'
         return result
       }
@@ -1864,26 +1557,26 @@ function launchAI() {
     // --- My apps ---
     if (lower.includes('my apps') || lower.includes('installed') || lower.includes('applications')) {
       const ids = getInstalledIds()
-      if (!ids.length) return "📦 You haven't installed any apps yet. Try `search market` or `install [name]`"
+      if (!ids.length) return "рџ“¦ You haven't installed any apps yet. Try `search market` or `install [name]`"
       const names = ids.map(id => { const a = MARKET_APPS.find(m => m.id === id); return a ? a.ico + ' ' + a.label : id }).join('<br>')
-      return '📦 Your installed apps:<br>' + names
+      return 'рџ“¦ Your installed apps:<br>' + names
     }
 
     // --- Joke ---
     if (lower.includes('joke') || lower.includes('funny') || lower.includes('laugh')) {
       const jokes = [
-        "Why do programmers prefer dark mode? Because light attracts bugs! 🐛",
-        "What do you call a fake noodle? An **impasta**! 🍝",
-        "Why did the developer go broke? He used up all his cache! 💸",
+        "Why do programmers prefer dark mode? Because light attracts bugs! рџђ›",
+        "What do you call a fake noodle? An **impasta**! рџЌќ",
+        "Why did the developer go broke? He used up all his cache! рџ’ё",
         "I told my computer I needed a break. Now it won't stop sending vacation ads.",
         "Why was the JS developer sad? He didn't know how to `null` his feelings.",
         "Why do Java developers wear glasses? Because they can't C#!",
-        "How many programmers does it take to change a light bulb? None — that's a hardware problem.",
-        "What's a computer's favorite snack? Microchips! 🍟",
+        "How many programmers does it take to change a light bulb? None вЂ” that's a hardware problem.",
+        "What's a computer's favorite snack? Microchips! рџЌџ",
         "Why did the CSS developer leave? They didn't get enough **margin**.",
-        "AI: **A**lways **I**mproving! 😄"
+        "AI: **A**lways **I**mproving! рџ„"
       ]
-      return '😂 ' + jokes[Math.floor(Math.random() * jokes.length)]
+      return 'рџ‚ ' + jokes[Math.floor(Math.random() * jokes.length)]
     }
 
     // --- Greetings ---
@@ -1900,40 +1593,40 @@ function launchAI() {
 
     // --- Who are you ---
     if (lower.includes('who are you') || lower.includes('what are you') || lower.includes('your name')) {
-      return "I'm **Kilton AI**, version 2.0 — your built-in OS assistant.<br><br>🧠 I can open apps, manage files & folders, do math, search files, find & install Market apps, control windows, tell jokes, and more.<br><br>Type `help` for a full list!"
+      return "I'm **Kilton AI**, version 2.0 вЂ” your built-in OS assistant.<br><br>рџ§  I can open apps, manage files & folders, do math, search files, find & install Market apps, control windows, tell jokes, and more.<br><br>Type `help` for a full list!"
     }
 
     // --- How are you ---
     if (lower.includes('how are you') || lower.includes('how\'s it going') || lower.includes('how do you')) {
-      const states = ["I'm doing great! How about you?", "All systems operational! 😊", "Running smoothly! Thanks for asking.", "Busy as always, but happy to help!"]
+      const states = ["I'm doing great! How about you?", "All systems operational! рџЉ", "Running smoothly! Thanks for asking.", "Busy as always, but happy to help!"]
       return states[Math.floor(Math.random() * states.length)]
     }
 
     // --- Thanks ---
     if (lower.includes('thank') || lower.includes('thanks') || lower.includes('thx')) {
-      return "You're welcome! 😊 Anything else?"
+      return "You're welcome! рџЉ Anything else?"
     }
 
     // --- Goodbye ---
     if (lower.includes('bye') || lower.includes('goodbye') || lower.includes('see you') || lower.includes('cya')) {
-      return "Bye! Come back anytime. 👋"
+      return "Bye! Come back anytime. рџ‘‹"
     }
 
     // --- Help ---
     if (lower === 'help' || lower === '?' || lower.includes('help') || lower.includes('commands') || lower.includes('what can you')) {
-      return `🤖 **Kilton AI — Help**<br><br>
-📱 **Apps:** open [app], close [app], minimize [app], install [app]<br>
-📁 **Files:** list files, read [file], find [query], create file [name], delete [name], rename [old] to [new]<br>
-📂 **Folders:** create folder [name], list files<br>
-🧮 **Math:** calculate [expression], what is [expression]<br>
-🛒 **Market:** search market [query], install [app], my apps<br>
-💻 **System:** system info, time, date<br>
-🎮 **Fun:** joke, hello, bye<br><br>
+      return `рџ¤– **Kilton AI вЂ” Help**<br><br>
+рџ“± **Apps:** open [app], close [app], minimize [app], install [app]<br>
+рџ“Ѓ **Files:** list files, read [file], find [query], create file [name], delete [name], rename [old] to [new]<br>
+рџ“‚ **Folders:** create folder [name], list files<br>
+рџ§® **Math:** calculate [expression], what is [expression]<br>
+рџ›’ **Market:** search market [query], install [app], my apps<br>
+рџ’» **System:** system info, time, date<br>
+рџЋ® **Fun:** joke, hello, bye<br><br>
 <i>I understand natural language! Try: "open browser and tell me the time"</i>`
     }
 
     // --- Default: fallback ---
-    return "🤔 I'm not sure how to respond to that.<br><br>Try: `open browser`, `list files`, `create file note.txt`, `joke`, `system info`, `install snake`, or `help`."
+    return "рџ¤” I'm not sure how to respond to that.<br><br>Try: `open browser`, `list files`, `create file note.txt`, `joke`, `system info`, `install snake`, or `help`."
   }
 
   // Handle chained commands
@@ -1956,7 +1649,7 @@ function launchAI() {
     const el = document.createElement('div')
     el.className = 'chat-msg ai'
     el.id = 'typingIndicator'
-    el.innerHTML = '<span style="opacity:.5">🤖 thinking</span><span class="typing-dots"><span>.</span><span>.</span><span>.</span></span>'
+    el.innerHTML = '<span style="opacity:.5">рџ¤– thinking</span><span class="typing-dots"><span>.</span><span>.</span><span>.</span></span>'
     msgsEl.appendChild(el)
     msgsEl.scrollTop = msgsEl.scrollHeight
   }
@@ -1975,7 +1668,8 @@ function launchAI() {
       if (text.toLowerCase() === 'clear') { msgsEl.innerHTML = ''; return }
       const resp = processInput(text)
       // Format code blocks
-      const formatted = resp.replace(/```(\w*)\n?([\s\S]*?)```/g, '<div style="background:#1a1a2e;padding:8px 12px;border-radius:4px;font-family:monospace;font-size:11px;color:#8f8;margin:4px 0;white-space:pre;overflow-x:auto">$2</div>')
+      const formatted = resp.replace(/```(\w*)
+?([\s\S]*?)```/g, '<div style="background:#1a1a2e;padding:8px 12px;border-radius:4px;font-family:monospace;font-size:11px;color:#8f8;margin:4px 0;white-space:pre;overflow-x:auto">$2</div>')
       addMsg('ai', formatted)
     }, 300 + Math.random() * 500)
   }
@@ -2027,36 +1721,44 @@ function positionContextMenu(menu, x, y) {
 function showContextMenu(x, y) {
   const menu = document.getElementById('ctxMenu')
   const items = [
-    {ico:'📁', label:'New Folder', fn:() => {
+    {ico:'рџ“Ѓ', label:'New Folder', fn:() => {
       const name = prompt('Folder name:')
       if (name && name.trim()) { createFolder('Desktop', name.trim()); refreshAllExplorers() }
     }},
-    {ico:'📄', label:'New Text Document', fn:() => {
+    {ico:'рџ“„', label:'New Text Document', fn:() => {
       createFile('Desktop', 'New Document.txt', 'text', ''); refreshAllExplorers()
     }},
-    {ico:'🔷', label:'New JavaScript File', fn:() => {
+    {ico:'рџ”·', label:'New JavaScript File', fn:() => {
       createFile('Desktop', 'script.js', 'text', ''); refreshAllExplorers()
     }},
-    {ico:'🌐', label:'New HTML File', fn:() => {
-      createFile('Desktop', 'page.html', 'text', '<!DOCTYPE html>\n<html>\n<head><title>Page</title></head>\n<body>\n\n</body>\n</html>'); refreshAllExplorers()
+    {ico:'рџЊђ', label:'New HTML File', fn:() => {
+      createFile('Desktop', 'page.html', 'text', '<!DOCTYPE html>
+<html>
+<head><title>Page</title></head>
+<body>
+
+</body>
+</html>'); refreshAllExplorers()
     }},
-    {ico:'🎨', label:'New CSS File', fn:() => {
+    {ico:'рџЋЁ', label:'New CSS File', fn:() => {
       createFile('Desktop', 'style.css', 'text', '/* styles */'); refreshAllExplorers()
     }},
-    {ico:'📋', label:'New JSON File', fn:() => {
+    {ico:'рџ“‹', label:'New JSON File', fn:() => {
       createFile('Desktop', 'data.json', 'text', '{}'); refreshAllExplorers()
     }},
-    {ico:'📘', label:'New Markdown File', fn:() => {
-      createFile('Desktop', 'readme.md', 'text', '# Title\n'); refreshAllExplorers()
+    {ico:'рџ“', label:'New Markdown File', fn:() => {
+      createFile('Desktop', 'readme.md', 'text', '# Title
+'); refreshAllExplorers()
     }},
-    {ico:'🐍', label:'New Python File', fn:() => {
-      createFile('Desktop', 'script.py', 'text', '# Python script\n'); refreshAllExplorers()
+    {ico:'рџђЌ', label:'New Python File', fn:() => {
+      createFile('Desktop', 'script.py', 'text', '# Python script
+'); refreshAllExplorers()
     }},
-    {ico:'📘', label:'New Word Document', fn:() => {
+    {ico:'рџ“', label:'New Word Document', fn:() => {
       createWordDoc('Desktop', 'New Document.docx')
     }},
     {divider:true},
-    {ico:'📋', label:'Paste', fn:() => {
+    {ico:'рџ“‹', label:'Paste', fn:() => {
       if (!CLIPBOARD.mode || !CLIPBOARD.srcDir || !CLIPBOARD.name) { showToast('Nothing to paste'); return }
       if (CLIPBOARD.mode === 'copy') copyItem(CLIPBOARD.srcDir, CLIPBOARD.name, 'Desktop')
       else moveItem(CLIPBOARD.srcDir, CLIPBOARD.name, 'Desktop')
@@ -2065,8 +1767,8 @@ function showContextMenu(x, y) {
       showToast('Pasted successfully'); refreshAllExplorers()
     }},
     {divider:true},
-    {ico:'🔄', label:'Refresh'},
-    {ico:'🎨', label:'Change Background', fn:() => showToast('Background change coming soon')},
+    {ico:'рџ”„', label:'Refresh'},
+    {ico:'рџЋЁ', label:'Change Background', fn:() => showToast('Background change coming soon')},
   ]
   renderContextMenu(menu, items)
   positionContextMenu(menu, x, y)
@@ -2397,10 +2099,10 @@ function createWordDoc(dir, name) {
 }
 
 function getFileIcon(type, name) {
-  if (type === 'folder') return '📁'
+  if (type === 'folder') return 'рџ“Ѓ'
   const ext = (name||'').split('.').pop().toLowerCase()
-  const m = { txt:'📄',md:'📄',js:'📄',py:'🐍',html:'🌐',css:'🎨',json:'📋',xml:'📋',jpg:'🖼️',jpeg:'🖼️',png:'🖼️',gif:'🖼️',svg:'🖼️',ico:'🖼️',webp:'🖼️',mp3:'🎵',wav:'🎵',ogg:'🎵',flac:'🎵',mp4:'🎬',avi:'🎬',mkv:'🎬',webm:'🎬',mov:'🎬',zip:'📦',rar:'📦',exe:'⚙️',app:'📦',pdf:'📕',doc:'📘',docx:'📘',xls:'📊',xlsx:'📊' }
-  return m[ext] || '📄'
+  const m = { txt:'рџ“„',md:'рџ“„',js:'рџ“„',py:'рџђЌ',html:'рџЊђ',css:'рџЋЁ',json:'рџ“‹',xml:'рџ“‹',jpg:'рџ–јпёЏ',jpeg:'рџ–јпёЏ',png:'рџ–јпёЏ',gif:'рџ–јпёЏ',svg:'рџ–јпёЏ',ico:'рџ–јпёЏ',webp:'рџ–јпёЏ',mp3:'рџЋµ',wav:'рџЋµ',ogg:'рџЋµ',flac:'рџЋµ',mp4:'рџЋ¬',avi:'рџЋ¬',mkv:'рџЋ¬',webm:'рџЋ¬',mov:'рџЋ¬',zip:'рџ“¦',rar:'рџ“¦',exe:'вљ™пёЏ',app:'рџ“¦',pdf:'рџ“•',doc:'рџ“',docx:'рџ“',xls:'рџ“Љ',xlsx:'рџ“Љ' }
+  return m[ext] || 'рџ“„'
 }
 
 function formatSize(bytes) { if (!bytes) return ''; if (bytes < 1024) return bytes + ' B'; if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB'; return (bytes/1048576).toFixed(1) + ' MB' }
@@ -2493,6 +2195,4 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else initAuth()
 
 })()
-</script>
-</body>
-</html>
+
