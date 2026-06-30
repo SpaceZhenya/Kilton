@@ -1429,9 +1429,8 @@ function launchBrowser(url) {
   div.querySelector('[data-b="dl"]').addEventListener('click', () => {
     if (!currentUrl) return
     const url = currentUrl
-    const fileName = url.split('/').pop().split('?')[0] || 'download'
+    let fileName = url.split('/').pop().split('?')[0] || 'download'
     showToast('Downloading ' + fileName + '...')
-    // Use server proxy to avoid CORS issues
     const proxyUrl = '/proxy?url=' + encodeURIComponent(url)
     fetch(proxyUrl).then(r => {
       if (!r.ok) throw new Error('HTTP ' + r.status)
@@ -1441,6 +1440,19 @@ function launchBrowser(url) {
       const reader = new FileReader()
       reader.onload = e => {
         const ext = fileName.split('.').pop().toLowerCase()
+        // If it's an installer (.exe, .msi), register as app
+        if (['exe','msi','app'].includes(ext)) {
+          const appName = fileName.replace(/\.(exe|msi|app)$/i, '')
+          const appId = 'installed_' + appName.toLowerCase().replace(/[^a-z0-9]/g,'_') + '_' + Date.now()
+          REGISTERED_APPS[appId] = () => {
+            const d = document.createElement('div'); d.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:40px;gap:16px;text-align:center'
+            d.innerHTML = `<div style="font-size:48px">⚙️</div><div style="font-size:18px;font-weight:500;color:#fff">${appName}</div><div style="color:#888;font-size:13px;max-width:300px;line-height:1.5">Installed from Kilton Browser</div><div style="color:#555;font-size:11px">Type: Application</div>`
+            createWindow({title:appName, icon:'⚙️', width:360, height:240, content:d})
+          }
+          launchApp(appId)
+          showToast('Installed: ' + appName)
+          return
+        }
         const textExts = ['txt','md','js','py','html','css','json','xml','csv','ini','cfg','log','bat','sh','svg']
         const isText = contentType.startsWith('text/') || textExts.includes(ext)
         const isAudio = contentType.startsWith('audio/') || ['mp3','wav','ogg','flac','aac'].includes(ext)
