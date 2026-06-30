@@ -1124,13 +1124,29 @@ function launchExplorer(startDir) {
 
   fuInput.addEventListener('change', () => {
     Array.from(fuInput.files).forEach(file => {
-      const isText = file.type.startsWith('text/') || file.type === '' || ['txt','md','js','py','html','css','json','xml','csv','ini','cfg','log','bat','sh'].includes(file.name.split('.').pop())
+      const ext = file.name.split('.').pop().toLowerCase()
+      const textExts = ['txt','md','js','py','html','css','json','xml','csv','ini','cfg','log','bat','sh']
+      const isText = file.type.startsWith('text/') || file.type === '' || textExts.includes(ext)
+      let fileType = 'image'
+      if (isText) fileType = 'text'
+      else if (file.type.startsWith('audio/') || ['mp3','wav','ogg','flac','aac','wma'].includes(ext)) fileType = 'audio'
+      else if (file.type.startsWith('video/') || ['mp4','avi','mkv','webm','mov','wmv','flv'].includes(ext)) fileType = 'video'
       const reader = new FileReader()
       reader.onload = e => {
-        createFile(currentDir, file.name, isText ? 'text' : 'image', e.target.result)
-        renderFiles()
+        try {
+          createFile(currentDir, file.name, fileType, e.target.result)
+          renderFiles()
+          showToast('Uploaded: ' + file.name)
+        } catch(ex) {
+          showToast('File too large for storage')
+        }
       }
-      isText ? reader.readAsText(file) : reader.readAsDataURL(file)
+      reader.onerror = () => showToast('Error reading file')
+      try {
+        isText ? reader.readAsText(file) : reader.readAsDataURL(file)
+      } catch(ex) {
+        showToast('File too large to read')
+      }
     })
     fuInput.value = ''
   })
