@@ -414,6 +414,7 @@ function rebuildDesktop() {
 function initDesktop() {
   const container = document.getElementById('desktopIcons')
   container.innerHTML = ''
+  // App shortcuts
   getAllDesktopApps().forEach(a => {
     const el = document.createElement('div')
     el.className = 'deskIcon'
@@ -421,9 +422,27 @@ function initDesktop() {
     el.addEventListener('dblclick', () => launchApp(a.id))
     container.appendChild(el)
   })
+  // Desktop files/folders
+  const desktopFiles = listDir('Desktop')
+  desktopFiles.forEach(f => {
+    const el = document.createElement('div')
+    el.className = 'deskIcon'
+    const ico = f.type === 'folder' ? '📁' : getFileIcon(f.type, f.name)
+    el.innerHTML = `<div class="icon">${ico}</div><div class="label">${f.name}</div>`
+    el.addEventListener('dblclick', () => {
+      if (f.type === 'folder') launchExplorer('Desktop/' + f.name)
+      else openFile('Desktop', f.name)
+    })
+    el.addEventListener('contextmenu', e => {
+      e.preventDefault(); e.stopPropagation(); showFileContextMenu(e.clientX, e.clientY, 'Desktop', f.name)
+    })
+    container.appendChild(el)
+  })
   container.addEventListener('contextmenu', e => {
     e.preventDefault()
-    showContextMenu(e.clientX, e.clientY)
+    if (e.target === container || e.target === document.getElementById('desktop')) {
+      showContextMenu(e.clientX, e.clientY)
+    }
   })
 }
 
@@ -983,6 +1002,7 @@ function launchExplorer(startDir) {
       <button data-d="upload">📤 Upload</button>
       <input type="file" id="fuInput" multiple style="display:none">
       <button data-d="newFolder">📁 New Folder</button>
+      <button data-d="paste" style="display:${CLIPBOARD.mode?'inline-flex':'none'}">📋 Paste</button>
     </div>
     <div class="explorer-content">
       <div class="explorer-sidebar">
@@ -998,12 +1018,30 @@ function launchExplorer(startDir) {
   const filesEl = div.querySelector('#explorerFiles')
   const addrBar = div.querySelector('.addrBar')
   const fuInput = div.querySelector('#fuInput')
+  const pasteBtn = div.querySelector('[data-d="paste"]')
   let currentDir = dir
+  let navStack = [dir]
 
   function activateSidebar(name) {
     div.querySelectorAll('.sideItem').forEach(s => s.classList.remove('active'))
-    const btn = div.querySelector(`.sideItem[data-s="${name}"]`)
+    const rootDir = name.split('/')[0]
+    const btn = div.querySelector(`.sideItem[data-s="${rootDir}"]`)
     if (btn) btn.classList.add('active')
+  }
+
+  function pasteHere() {
+    if (!CLIPBOARD.mode || !CLIPBOARD.srcDir || !CLIPBOARD.name) return
+    if (CLIPBOARD.mode === 'copy') copyItem(CLIPBOARD.srcDir, CLIPBOARD.name, currentDir)
+    else moveItem(CLIPBOARD.srcDir, CLIPBOARD.name, currentDir)
+    CLIPBOARD.mode = null; CLIPBOARD.srcDir = null; CLIPBOARD.name = null
+    pasteBtn.style.display = 'none'
+    showToast('Pasted successfully')
+    refreshAllExplorers()
+    renderFiles()
+  }
+
+  function updatePasteBtn() {
+    pasteBtn.style.display = CLIPBOARD.mode ? 'inline-flex' : 'none'
   }
 
   function renderFiles() {
@@ -1014,6 +1052,7 @@ function launchExplorer(startDir) {
       const item = document.createElement('div')
       item.className = 'fileItem'
       const ico = f.type === 'folder' ? '📁' : getFileIcon(f.type, f.name)
+      item.draggable = true
       item.innerHTML = `<div class="ico">${ico}</div><div class="name">${f.name}</div>`
       item.addEventListener('dblclick', () => {
         if (f.type === 'folder') { navigateTo(currentDir + '/' + f.name); return }
@@ -1022,21 +1061,56 @@ function launchExplorer(startDir) {
       item.addEventListener('contextmenu', e => {
         e.preventDefault(); showFileContextMenu(e.clientX, e.clientY, currentDir, f.name)
       })
+      // Drag start
+      item.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text/plain', JSON.stringify({ dir: currentDir, name: f.name }))
+        e.dataTransfer.effectAllowed = 'move'
+        item.style.opacity = '0.4'
+      })
+      item.addEventListener('dragend', e => { item.style.opacity = '1' })
+      // Drop target for folders
+      if (f.type === 'folder') {
+        item.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; item.style.background = 'rgba(100,150,255,.15)' })
+        item.addEventListener('dragleave', e => { item.style.background = '' })
+        item.addEventListener('drop', e => {
+          e.preventDefault(); e.stopPropagation(); item.style.background = ''
+          try {
+            const data = JSON.parse(e.dataTransfer.getData('text/plain'))
+            if (data.name && data.dir) {
+              const dstDir = currentDir + '/' + f.name
+              if (moveItem(data.dir, data.name, dstDir)) { showToast('Moved to ' + f.name); refreshAllExplorers(); renderFiles() }
+              else showToast('Could not move')
+            }
+          } catch(ex) { showToast('Invalid drag data') }
+        })
+      }
       filesEl.appendChild(item)
+    })
+    // Drop on empty area (into current dir)
+    filesEl.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' })
+    filesEl.addEventListener('drop', e => {
+      e.preventDefault()
+      try {
+        const data = JSON.parse(e.dataTransfer.getData('text/plain'))
+        if (data.name && data.dir && data.dir !== currentDir) {
+          if (moveItem(data.dir, data.name, currentDir)) { showToast('Moved here'); refreshAllExplorers(); renderFiles() }
+        }
+      } catch(ex) {}
     })
   }
 
   function navigateTo(path) {
-    const parts = path.split('/')
-    currentDir = parts[0]
-    const validDirs = ['Desktop','Documents','Downloads','Pictures','Music']
-    if (!validDirs.includes(currentDir)) { currentDir = 'Desktop'; showToast('Cannot open subfolder yet') }
+    navStack.push(currentDir)
+    currentDir = path
+    ensureDir(getFS(), currentDir)
     addrBar.value = '📁 ' + currentDir
     activateSidebar(currentDir)
     renderFiles()
   }
 
-  div.querySelector('[data-d="back"]').addEventListener('click', () => { currentDir = 'Desktop'; addrBar.value = '📁 Desktop'; activateSidebar('Desktop'); renderFiles() })
+  div.querySelector('[data-d="back"]').addEventListener('click', () => {
+    if (navStack.length > 0) { currentDir = navStack.pop(); addrBar.value = '📁 ' + currentDir; activateSidebar(currentDir); renderFiles() }
+  })
   div.querySelector('[data-d="refresh"]').addEventListener('click', renderFiles)
 
   div.querySelector('[data-d="newFolder"]').addEventListener('click', () => {
@@ -1045,6 +1119,8 @@ function launchExplorer(startDir) {
   })
 
   div.querySelector('[data-d="upload"]').addEventListener('click', () => fuInput.click())
+
+  div.querySelector('[data-d="paste"]').addEventListener('click', pasteHere)
 
   fuInput.addEventListener('change', () => {
     Array.from(fuInput.files).forEach(file => {
@@ -1062,7 +1138,7 @@ function launchExplorer(startDir) {
   div.querySelectorAll('.sideItem').forEach(btn => {
     btn.addEventListener('click', () => {
       const name = btn.dataset.s
-      currentDir = name; addrBar.value = '📁 ' + name; activateSidebar(name); renderFiles()
+      currentDir = name; addrBar.value = '📁 ' + name; navStack = []; activateSidebar(name); renderFiles()
     })
   })
 
@@ -1102,8 +1178,26 @@ function showFileContextMenu(x, y, dir, fileName) {
   menu.innerHTML = ''
   const items = [
     {ico:'📂', label:'Open', fn:() => openFile(dir, fileName)},
-    {ico:'📋', label:'Copy'},
-    {ico:'✂️', label:'Cut'},
+    {divider:true},
+    {ico:'📋', label:'Copy', fn:() => {
+      CLIPBOARD.mode = 'copy'; CLIPBOARD.srcDir = dir; CLIPBOARD.name = fileName
+      showToast('Copied: ' + fileName)
+      // Update all paste buttons
+      document.querySelectorAll('[data-d="paste"]').forEach(b => b.style.display = 'inline-flex')
+    }},
+    {ico:'✂️', label:'Cut', fn:() => {
+      CLIPBOARD.mode = 'cut'; CLIPBOARD.srcDir = dir; CLIPBOARD.name = fileName
+      showToast('Cut: ' + fileName)
+      document.querySelectorAll('[data-d="paste"]').forEach(b => b.style.display = 'inline-flex')
+    }},
+    {ico:'📋', label:'Paste', fn:() => {
+      if (!CLIPBOARD.mode || !CLIPBOARD.srcDir || !CLIPBOARD.name) { showToast('Nothing to paste'); return }
+      if (CLIPBOARD.mode === 'copy') copyItem(CLIPBOARD.srcDir, CLIPBOARD.name, dir)
+      else moveItem(CLIPBOARD.srcDir, CLIPBOARD.name, dir)
+      CLIPBOARD.mode = null; CLIPBOARD.srcDir = null; CLIPBOARD.name = null
+      document.querySelectorAll('[data-d="paste"]').forEach(b => b.style.display = 'none')
+      showToast('Pasted successfully'); refreshAllExplorers()
+    }},
     {divider:true},
     {ico:'📛', label:'Rename', fn:() => {
       const newName = prompt('Rename to:', fileName)
@@ -1124,6 +1218,12 @@ function refreshAllExplorers() {
     const content = w.el.querySelector('.window-content')
     if (content) { const btn = content.querySelector('[data-d="refresh"]'); if (btn) btn.click() }
   })
+  // Re-render desktop icons
+  initDesktop()
+  // Update paste buttons in all explorer windows
+  setTimeout(() => {
+    document.querySelectorAll('[data-d="paste"]').forEach(b => { b.style.display = CLIPBOARD.mode ? 'inline-flex' : 'none' })
+  }, 50)
 }
 
 // --- About ---
@@ -1496,16 +1596,41 @@ function showContextMenu(x, y) {
   const items = [
     {ico:'📁', label:'New Folder', fn:() => {
       const name = prompt('Folder name:')
-      if (name && name.trim()) { createFolder('Desktop', name.trim()); showToast('Folder created') }
+      if (name && name.trim()) { createFolder('Desktop', name.trim()); refreshAllExplorers() }
     }},
     {ico:'📄', label:'New Text Document', fn:() => {
-      createFile('Desktop', 'New Document.txt', 'text', ''); showToast('File created')
+      createFile('Desktop', 'New Document.txt', 'text', ''); refreshAllExplorers()
+    }},
+    {ico:'🔷', label:'New JavaScript File', fn:() => {
+      createFile('Desktop', 'script.js', 'text', ''); refreshAllExplorers()
+    }},
+    {ico:'🌐', label:'New HTML File', fn:() => {
+      createFile('Desktop', 'page.html', 'text', '<!DOCTYPE html>\n<html>\n<head><title>Page</title></head>\n<body>\n\n</body>\n</html>'); refreshAllExplorers()
+    }},
+    {ico:'🎨', label:'New CSS File', fn:() => {
+      createFile('Desktop', 'style.css', 'text', '/* styles */'); refreshAllExplorers()
+    }},
+    {ico:'📋', label:'New JSON File', fn:() => {
+      createFile('Desktop', 'data.json', 'text', '{}'); refreshAllExplorers()
+    }},
+    {ico:'📘', label:'New Markdown File', fn:() => {
+      createFile('Desktop', 'readme.md', 'text', '# Title\n'); refreshAllExplorers()
+    }},
+    {ico:'🐍', label:'New Python File', fn:() => {
+      createFile('Desktop', 'script.py', 'text', '# Python script\n'); refreshAllExplorers()
+    }},
+    {divider:true},
+    {ico:'📋', label:'Paste', fn:() => {
+      if (!CLIPBOARD.mode || !CLIPBOARD.srcDir || !CLIPBOARD.name) { showToast('Nothing to paste'); return }
+      if (CLIPBOARD.mode === 'copy') copyItem(CLIPBOARD.srcDir, CLIPBOARD.name, 'Desktop')
+      else moveItem(CLIPBOARD.srcDir, CLIPBOARD.name, 'Desktop')
+      CLIPBOARD.mode = null; CLIPBOARD.srcDir = null; CLIPBOARD.name = null
+      document.querySelectorAll('[data-d="paste"]').forEach(b => b.style.display = 'none')
+      showToast('Pasted successfully'); refreshAllExplorers()
     }},
     {divider:true},
     {ico:'🔄', label:'Refresh'},
     {ico:'🎨', label:'Change Background', fn:() => showToast('Background change coming soon')},
-    {divider:true},
-    {ico:'⚙️', label:'Settings', fn:() => showToast('Settings coming soon')},
   ]
   renderContextMenu(menu, items)
   positionContextMenu(menu, x, y)
@@ -1640,17 +1765,19 @@ function saveFS(fs) {
   try { localStorage.setItem(getFSKey(), JSON.stringify(fs)) } catch(e) {}
 }
 
+function ensureDir(fs, dir) { if (!fs[dir]) fs[dir] = []; return fs }
+
 function listDir(dir) { const fs = getFS(); return fs[dir] || [] }
 
 function createFile(dir, name, type, content) {
-  const fs = getFS(); if (!fs[dir]) fs[dir] = []
+  const fs = getFS(); ensureDir(fs, dir)
   if (fs[dir].some(f => f.name === name)) { showToast('Already exists'); return false }
   fs[dir].push({ name, type: type || 'text', content: content || '', size: (content||'').length, modified: new Date().toISOString() })
   saveFS(fs); return true
 }
 
 function createFolder(dir, name) {
-  const fs = getFS(); if (!fs[dir]) fs[dir] = []
+  const fs = getFS(); ensureDir(fs, dir)
   if (fs[dir].some(f => f.name === name)) { showToast('Already exists'); return false }
   fs[dir].push({ name, type: 'folder', content: '', size: 0, modified: new Date().toISOString() })
   saveFS(fs); return true
@@ -1658,7 +1785,11 @@ function createFolder(dir, name) {
 
 function deleteItem(dir, name) {
   const fs = getFS(); if (!fs[dir]) return false
-  fs[dir] = fs[dir].filter(f => f.name !== name); saveFS(fs); return true
+  fs[dir] = fs[dir].filter(f => f.name !== name)
+  // Clean up orphaned subfolder keys
+  const prefix = dir + '/' + name
+  Object.keys(fs).filter(k => k === prefix || k.startsWith(prefix + '/')).forEach(k => delete fs[k])
+  saveFS(fs); return true
 }
 
 function renameItem(dir, oldName, newName) {
@@ -1667,6 +1798,36 @@ function renameItem(dir, oldName, newName) {
   if (fs[dir].some(f => f.name === newName && f !== item)) { showToast('Name taken'); return false }
   item.name = newName; item.modified = new Date().toISOString(); saveFS(fs); return true
 }
+
+function moveItem(srcDir, name, dstDir) {
+  const fs = getFS(); if (!fs[srcDir]) return false
+  const idx = fs[srcDir].findIndex(f => f.name === name); if (idx === -1) return false
+  const item = fs[srcDir].splice(idx, 1)[0]
+  ensureDir(fs, dstDir)
+  if (fs[dstDir].some(f => f.name === name)) { fs[srcDir].push(item); showToast('Name exists in destination'); return false }
+  fs[dstDir].push(item); saveFS(fs); return true
+}
+
+function copyItem(srcDir, name, dstDir) {
+  const fs = getFS(); if (!fs[srcDir]) return false
+  const item = fs[srcDir].find(f => f.name === name); if (!item) return false
+  ensureDir(fs, dstDir)
+  let newName = name; let cnt = 1
+  while (fs[dstDir].some(f => f.name === newName)) { const p = name.lastIndexOf('.'); newName = p > 0 ? name.slice(0,p)+' ('+cnt+')'+name.slice(p) : name+' ('+cnt+')'; cnt++ }
+  const copy = JSON.parse(JSON.stringify(item)); copy.name = newName; copy.modified = new Date().toISOString()
+  // If it's a folder, copy its children too
+  if (item.type === 'folder') {
+    const childKeys = Object.keys(fs).filter(k => k.startsWith(srcDir+'/'+name))
+    childKeys.forEach(k => { const suffix = k.slice((srcDir+'/'+name).length); fs[dstDir+'/'+newName+suffix] = JSON.parse(JSON.stringify(fs[k])) })
+  }
+  fs[dstDir].push(copy); saveFS(fs); return true
+}
+
+function getParentDir(path) { const i = path.lastIndexOf('/'); return i > 0 ? path.slice(0, i) : path.split('/')[0] }
+
+function isSubfolder(fs, dir) { return !['Desktop','Documents','Downloads','Pictures','Music'].includes(dir) }
+
+const CLIPBOARD = { mode: null, srcDir: null, name: null }
 
 function getFileIcon(type, name) {
   if (type === 'folder') return '📁'
