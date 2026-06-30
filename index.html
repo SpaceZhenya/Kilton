@@ -1426,27 +1426,26 @@ function launchBrowser(url) {
   div.querySelector('[data-b="ext"]').addEventListener('click', () => {
     if (currentUrl) window.open(currentUrl, '_blank')
   })
-  div.querySelector('[data-b="dl"]').addEventListener('click', () => {
-    if (!currentUrl) return
+  div.querySelector('[data-b="dl"]').addEventListener('click', async () => {
+    if (!currentUrl) { showToast('No URL to download'); return }
     const url = currentUrl
     let fileName = url.split('/').pop().split('?')[0] || 'download'
     showToast('Downloading ' + fileName + '...')
-    const proxyUrl = '/proxy?url=' + encodeURIComponent(url)
-    fetch(proxyUrl).then(r => {
+    try {
+      const proxyUrl = '/proxy?url=' + encodeURIComponent(url)
+      const r = await fetch(proxyUrl)
       if (!r.ok) throw new Error('HTTP ' + r.status)
       const contentType = r.headers.get('content-type') || ''
-      return r.blob().then(blob => ({ blob, contentType }))
-    }).then(({ blob, contentType }) => {
+      const blob = await r.blob()
       const reader = new FileReader()
       reader.onload = e => {
         const ext = fileName.split('.').pop().toLowerCase()
-        // If it's an installer (.exe, .msi), register as app
-        if (['exe','msi','app'].includes(ext)) {
-          const appName = fileName.replace(/\.(exe|msi|app)$/i, '')
+        if (['exe','msi','app','desktop'].includes(ext)) {
+          const appName = fileName.replace(/\.(exe|msi|app|desktop)$/i, '')
           const appId = 'installed_' + appName.toLowerCase().replace(/[^a-z0-9]/g,'_') + '_' + Date.now()
           REGISTERED_APPS[appId] = () => {
             const d = document.createElement('div'); d.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:40px;gap:16px;text-align:center'
-            d.innerHTML = `<div style="font-size:48px">⚙️</div><div style="font-size:18px;font-weight:500;color:#fff">${appName}</div><div style="color:#888;font-size:13px;max-width:300px;line-height:1.5">Installed from Kilton Browser</div><div style="color:#555;font-size:11px">Type: Application</div>`
+            d.innerHTML = `<div style="font-size:48px">⚙️</div><div style="font-size:18px;font-weight:500;color:#fff">${appName}</div><div style="color:#888;font-size:13px;max-width:300px">Installed from Kilton Browser</div>`
             createWindow({title:appName, icon:'⚙️', width:360, height:240, content:d})
           }
           launchApp(appId)
@@ -1464,12 +1463,18 @@ function launchBrowser(url) {
         try {
           if (createFile('Downloads', fileName, fileType, e.target.result))
             showToast('Downloaded: ' + fileName)
-          else showToast('File already exists in Downloads')
-        } catch(ex) { showToast('File too large for storage') }
+          else showToast('Already exists in Downloads')
+        } catch(ex) { showToast('File too large') }
         refreshAllExplorers()
       }
       reader.readAsDataURL(blob)
-    }).catch(err => showToast('Download failed: ' + err.message))
+    } catch(err) {
+      let msg = err.message
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) msg = 'Server proxy unavailable - restart Kilton server'
+      else if (msg.includes('HTTP 502')) msg = 'Target site blocked the request'
+      else if (msg.includes('HTTP 4')) msg = 'URL not found (HTTP error)'
+      showToast('Download failed: ' + msg)
+    }
   })
 
   openTabBtn.addEventListener('click', () => { if (currentUrl) window.open(currentUrl, '_blank') })
