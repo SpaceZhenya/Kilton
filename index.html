@@ -1203,6 +1203,9 @@ function showFileContextMenu(x, y, dir, fileName) {
       const newName = prompt('Rename to:', fileName)
       if (newName && newName.trim() && newName.trim() !== fileName) { renameItem(dir, fileName, newName.trim()); refreshAllExplorers() }
     }},
+    {ico:'📦', label:'Compress to ZIP', fn:() => {
+      compressToZip(dir, fileName)
+    }},
     {ico:'🗑️', label:'Delete', fn:() => {
       if (confirm('Delete ' + fileName + '?')) { deleteItem(dir, fileName); refreshAllExplorers() }
     }},
@@ -1619,6 +1622,9 @@ function showContextMenu(x, y) {
     {ico:'🐍', label:'New Python File', fn:() => {
       createFile('Desktop', 'script.py', 'text', '# Python script\n'); refreshAllExplorers()
     }},
+    {ico:'📘', label:'New Word Document', fn:() => {
+      createWordDoc('Desktop', 'New Document.docx')
+    }},
     {divider:true},
     {ico:'📋', label:'Paste', fn:() => {
       if (!CLIPBOARD.mode || !CLIPBOARD.srcDir || !CLIPBOARD.name) { showToast('Nothing to paste'); return }
@@ -1828,6 +1834,137 @@ function getParentDir(path) { const i = path.lastIndexOf('/'); return i > 0 ? pa
 function isSubfolder(fs, dir) { return !['Desktop','Documents','Downloads','Pictures','Music'].includes(dir) }
 
 const CLIPBOARD = { mode: null, srcDir: null, name: null }
+
+// --- CRC-32 for ZIP ---
+function crc32(data) {
+  let crc = 0xffffffff
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data[i]
+    for (let j = 0; j < 8; j++) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0)
+  }
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+// --- Create ZIP blob (store method) ---
+function createZipBlob(files) {
+  // files: [{name: "path/in/zip.txt", data: Uint8Array}, ...]
+  const localHeaders = [], centralEntries = [], allData = []
+  let offset = 0
+  const encoder = new TextEncoder()
+  files.forEach(f => {
+    const nameBytes = encoder.encode(f.name)
+    const crc = crc32(f.data)
+    const sz = f.data.length
+    // Local file header
+    const lh = new ArrayBuffer(30 + nameBytes.length)
+    const lv = new DataView(lh)
+    lv.setUint32(0, 0x04034b50, true); lv.setUint16(4, 20, true); lv.setUint16(6, 0, true)
+    lv.setUint16(8, 0, true); lv.setUint16(10, 0, true); lv.setUint16(12, 0, true)
+    lv.setUint32(14, crc, true); lv.setUint32(18, sz, true); lv.setUint32(22, sz, true)
+    lv.setUint16(26, nameBytes.length, true); lv.setUint16(28, 0, true)
+    new Uint8Array(lh).set(nameBytes, 30)
+    localHeaders.push(new Uint8Array(lh))
+    allData.push(f.data)
+    // Central directory entry
+    const ce = new ArrayBuffer(46 + nameBytes.length)
+    const cv = new DataView(ce)
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true)
+    cv.setUint16(8, 0, true); cv.setUint16(10, 0, true); cv.setUint16(12, 0, true); cv.setUint16(14, 0, true)
+    cv.setUint32(16, crc, true); cv.setUint32(20, sz, true); cv.setUint32(24, sz, true)
+    cv.setUint16(28, nameBytes.length, true); cv.setUint16(30, 0, true); cv.setUint16(32, 0, true)
+    cv.setUint16(34, 0, true); cv.setUint16(36, 0, true); cv.setUint32(38, 0, true)
+    cv.setUint32(42, offset, true)
+    new Uint8Array(ce).set(nameBytes, 46)
+    centralEntries.push(new Uint8Array(ce))
+    offset += 30 + nameBytes.length + sz
+  })
+  const centralSize = centralEntries.reduce((s, e) => s + e.length, 0)
+  const centralOffset = localHeaders.reduce((s, e) => s + e.length, 0) + allData.reduce((s, e) => s + e.length, 0)
+  // End of central directory
+  const ecd = new ArrayBuffer(22)
+  const ev = new DataView(ecd)
+  ev.setUint32(0, 0x06054b50, true); ev.setUint16(4, 0, true); ev.setUint16(6, 0, true)
+  ev.setUint16(8, files.length, true); ev.setUint16(10, files.length, true)
+  ev.setUint32(12, centralSize, true); ev.setUint32(16, centralOffset, true); ev.setUint16(20, 0, true)
+  // Combine
+  const parts = [...localHeaders, ...allData, ...centralEntries, new Uint8Array(ecd)]
+  const total = parts.reduce((s, p) => s + p.length, 0)
+  const result = new Uint8Array(total)
+  let pos = 0
+  parts.forEach(p => { result.set(p, pos); pos += p.length })
+  return new Blob([result], { type: 'application/zip' })
+}
+
+// --- Compress folder/files to ZIP ---
+function compressToZip(dir, name) {
+  const fs = getFS();
+  const items = fs[dir] || [];
+  const target = items.find(f => f.name === name);
+  if (!target) { showToast('Not found'); return }
+  const entries = [];
+  function collect(path, prefix) {
+    const list = fs[path] || [];
+    list.forEach(item => {
+      const zipName = prefix ? prefix + '/' + item.name : item.name
+      if (item.type === 'folder') {
+        collect(path + '/' + item.name, zipName)
+      } else {
+        const content = item.content || ''
+        const data = content.startsWith('data:') ? dataURLtoUint8(content) : new TextEncoder().encode(content)
+        entries.push({ name: zipName, data })
+      }
+    })
+  }
+  if (target.type === 'folder') {
+    collect(dir + '/' + name, name)
+  } else {
+    const content = target.content || ''
+    const data = content.startsWith('data:') ? dataURLtoUint8(content) : new TextEncoder().encode(content)
+    entries.push({ name, data })
+  }
+  if (!entries.length) { showToast('Nothing to compress'); return }
+  const blob = createZipBlob(entries)
+  const reader = new FileReader()
+  reader.onload = e => {
+    createFile(dir, name + '.zip', 'image', e.target.result)
+    showToast('Created: ' + name + '.zip'); refreshAllExplorers()
+  }
+  reader.readAsDataURL(blob)
+}
+
+function dataURLtoUint8(dataURL) {
+  const parts = dataURL.split(',')
+  const raw = atob(parts[1])
+  const buf = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i++) buf[i] = raw.charCodeAt(i)
+  return buf
+}
+
+// --- Create minimal DOCX ---
+function createDocxBlob(title) {
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  const xml = (name, content) => ({ name, data: new TextEncoder().encode(content) })
+  const files = [
+    xml('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`),
+    xml('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`),
+    xml('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`),
+    xml('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${esc(title||'New Document')}</w:t></w:r></w:p></w:body></w:document>`),
+    xml('word/styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:pPr><w:spacing w:after="200" w:line="276"/></w:pPr><w:rPr><w:sz w:val="24"/></w:rPr></w:style></w:styles>`)
+  ]
+  return createZipBlob(files)
+}
+
+// --- Create Word document in FS ---
+function createWordDoc(dir, name) {
+  const title = name.replace(/\.docx$/i, '')
+  const blob = createDocxBlob(title)
+  const reader = new FileReader()
+  reader.onload = e => {
+    createFile(dir, name, 'image', e.target.result)
+    showToast('Created: ' + name); refreshAllExplorers()
+  }
+  reader.readAsDataURL(blob)
+}
 
 function getFileIcon(type, name) {
   if (type === 'folder') return '📁'
