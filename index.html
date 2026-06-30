@@ -1002,6 +1002,7 @@ function launchExplorer(startDir) {
       <button data-d="upload">📤 Upload</button>
       <input type="file" id="fuInput" multiple style="display:none">
       <button data-d="newFolder">📁 New Folder</button>
+      <button data-d="dlurl">🌐 Download URL</button>
       <button data-d="paste" style="display:${CLIPBOARD.mode?'inline-flex':'none'}">📋 Paste</button>
     </div>
     <div class="explorer-content">
@@ -1119,6 +1120,50 @@ function launchExplorer(startDir) {
   })
 
   div.querySelector('[data-d="upload"]').addEventListener('click', () => fuInput.click())
+
+  div.querySelector('[data-d="dlurl"]').addEventListener('click', () => {
+    const url = prompt('Paste file URL to download:')
+    if (!url || !url.trim()) return
+    const fileName = url.split('/').pop().split('?')[0] || 'download'
+    showToast('Downloading ' + fileName + '...')
+    fetch(url).then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status)
+      const ct = r.headers.get('content-type') || ''
+      return r.blob().then(blob => ({ blob, ct }))
+    }).then(({ blob, ct }) => {
+      const reader = new FileReader()
+      reader.onload = e => {
+        const ext = fileName.split('.').pop().toLowerCase()
+        const textExts = ['txt','md','js','py','html','css','json','xml','csv','ini','cfg','log','bat','sh','svg']
+        const isText = ct.startsWith('text/') || textExts.includes(ext)
+        const isAudio = ct.startsWith('audio/') || ['mp3','wav','ogg','flac','aac'].includes(ext)
+        const isVideo = ct.startsWith('video/') || ['mp4','avi','mkv','webm','mov','wmv','flv'].includes(ext)
+        let ft = 'image'
+        if (isText) ft = 'text'
+        else if (isAudio) ft = 'audio'
+        else if (isVideo) ft = 'video'
+        if (['exe','msi','app'].includes(ext)) {
+          const appName = fileName.replace(/\.(exe|msi|app)$/i, '')
+          const appId = 'installed_' + appName.toLowerCase().replace(/[^a-z0-9]/g,'_') + '_' + Date.now()
+          REGISTERED_APPS[appId] = () => {
+            const d = document.createElement('div'); d.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:40px;gap:16px;text-align:center'
+            d.innerHTML = `<div style="font-size:48px">⚙️</div><div style="font-size:18px;font-weight:500;color:#fff">${appName}</div><div style="color:#888;font-size:13px;max-width:300px">Downloaded app</div>`
+            createWindow({title:appName, icon:'⚙️', width:360, height:240, content:d})
+          }
+          launchApp(appId)
+          showToast('Installed app: ' + appName)
+          return
+        }
+        try {
+          if (createFile(currentDir, fileName, ft, e.target.result))
+            showToast('Downloaded: ' + fileName)
+          else showToast('Already exists')
+        } catch(ex) { showToast('File too large for storage') }
+        renderFiles()
+      }
+      reader.readAsDataURL(blob)
+    }).catch(err => showToast('Download error: ' + err.message))
+  })
 
   div.querySelector('[data-d="paste"]').addEventListener('click', pasteHere)
 
@@ -1426,61 +1471,13 @@ function launchBrowser(url) {
   div.querySelector('[data-b="ext"]').addEventListener('click', () => {
     if (currentUrl) window.open(currentUrl, '_blank')
   })
-  div.querySelector('[data-b="dl"]').addEventListener('click', async () => {
-    if (!currentUrl) { showToast('No URL to download'); return }
-    const url = currentUrl
-    let fileName = url.split('/').pop().split('?')[0] || ''
-    const ext = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : ''
-    // Only download direct file links - installers, archives, docs, media
-    const dlExts = ['exe','msi','app','zip','rar','7z','gz','tar','pdf','doc','docx','xls','xlsx','ppt','pptx']
-    if (!dlExts.includes(ext) && !['exe','msi','app'].includes(ext)) {
-      showToast('📥 Use ↗ to open this page - paste a direct file link to download')
-      return
-    }
-    showToast('Downloading ' + fileName + '...')
-    console.log('[Kilton Download] Fetching via proxy:', url)
-    try {
-      const proxyUrl = '/proxy?url=' + encodeURIComponent(url)
-      const r = await fetch(proxyUrl)
-      console.log('[Kilton Download] Proxy response:', r.status, r.headers.get('content-type'))
-      if (!r.ok) throw new Error('HTTP ' + r.status)
-      const contentType = r.headers.get('content-type') || ''
-      const blob = await r.blob()
-      const reader = new FileReader()
-      reader.onload = e => {
-        if (['exe','msi','app','desktop'].includes(ext)) {
-          const appName = fileName.replace(/\.(exe|msi|app|desktop)$/i, '')
-          const appId = 'installed_' + appName.toLowerCase().replace(/[^a-z0-9]/g,'_') + '_' + Date.now()
-          REGISTERED_APPS[appId] = () => {
-            const d = document.createElement('div'); d.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:40px;gap:16px;text-align:center'
-            d.innerHTML = `<div style="font-size:48px">⚙️</div><div style="font-size:18px;font-weight:500;color:#fff">${appName}</div><div style="color:#888;font-size:13px;max-width:300px">Installed via Kilton Browser</div>`
-            createWindow({title:appName, icon:'⚙️', width:360, height:240, content:d})
-          }
-          launchApp(appId)
-          showToast('Installed: ' + appName)
-          return
-        }
-        const textExts = ['txt','md','js','py','html','css','json','xml','csv','ini','cfg','log','bat','sh','svg']
-        const isText = contentType.startsWith('text/') || textExts.includes(ext)
-        const isAudio = contentType.startsWith('audio/') || ['mp3','wav','ogg','flac','aac'].includes(ext)
-        const isVideo = contentType.startsWith('video/') || ['mp4','avi','mkv','webm','mov','wmv','flv'].includes(ext)
-        let fileType = 'image'
-        if (isText) fileType = 'text'
-        else if (isAudio) fileType = 'audio'
-        else if (isVideo) fileType = 'video'
-        try {
-          if (createFile('Downloads', fileName, fileType, e.target.result))
-            showToast('Downloaded: ' + fileName)
-          else showToast('Already exists in Downloads')
-        } catch(ex) { showToast('File too large') }
-        refreshAllExplorers()
-      }
-      reader.readAsDataURL(blob)
-    } catch(err) {
-      console.error('[Kilton Download] Error:', err)
-      let msg = 'Proxy error - try ↗ to open in real browser'
-      showToast('Download failed: ' + msg)
-    }
+  div.querySelector('[data-b="dl"]').addEventListener('click', () => {
+    // Save current page as HTML file in Downloads
+    if (!currentUrl) { showToast('No page to save'); return }
+    const name = currentUrl.replace(/https?:\/\//,'').replace(/[^a-z0-9]/gi,'_').substring(0,40) + '.html'
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${currentUrl}</title><style>body{font-family:sans-serif;padding:20px;word-break:break-all}</style></head><body><p>Saved from: <a href="${currentUrl}">${currentUrl}</a></p><p>Date: ${new Date().toLocaleString()}</p><hr><p>Use ↗ to open this page in your real browser.</p></body></html>`
+    createFile('Downloads', name, 'text', html)
+    showToast('Saved page link to Downloads')
   })
 
   openTabBtn.addEventListener('click', () => { if (currentUrl) window.open(currentUrl, '_blank') })
