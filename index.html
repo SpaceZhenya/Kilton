@@ -1430,6 +1430,7 @@ function launchBrowser(url) {
     if (!currentUrl) { showToast('No URL to download'); return }
     const url = currentUrl
     let fileName = url.split('/').pop().split('?')[0] || 'download'
+    if (!fileName.includes('.')) fileName = 'page.html'
     showToast('Downloading ' + fileName + '...')
     try {
       const proxyUrl = '/proxy?url=' + encodeURIComponent(url)
@@ -1445,7 +1446,7 @@ function launchBrowser(url) {
           const appId = 'installed_' + appName.toLowerCase().replace(/[^a-z0-9]/g,'_') + '_' + Date.now()
           REGISTERED_APPS[appId] = () => {
             const d = document.createElement('div'); d.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:40px;gap:16px;text-align:center'
-            d.innerHTML = `<div style="font-size:48px">⚙️</div><div style="font-size:18px;font-weight:500;color:#fff">${appName}</div><div style="color:#888;font-size:13px;max-width:300px">Installed from Kilton Browser</div>`
+            d.innerHTML = `<div style="font-size:48px">⚙️</div><div style="font-size:18px;font-weight:500;color:#fff">${appName}</div><div style="color:#888;font-size:13px;max-width:300px">Installed via Kilton Browser</div>`
             createWindow({title:appName, icon:'⚙️', width:360, height:240, content:d})
           }
           launchApp(appId)
@@ -1472,7 +1473,7 @@ function launchBrowser(url) {
       let msg = err.message
       if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) msg = 'Server proxy unavailable - restart Kilton server'
       else if (msg.includes('HTTP 502')) msg = 'Target site blocked the request'
-      else if (msg.includes('HTTP 4')) msg = 'URL not found (HTTP error)'
+      else if (msg.includes('HTTP 4')) msg = 'URL not found - this site may not allow downloads via proxy'
       showToast('Download failed: ' + msg)
     }
   })
