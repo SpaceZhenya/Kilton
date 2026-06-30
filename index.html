@@ -230,6 +230,59 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',Tahoma,s
 #loginBox .toggle:hover{color:#aaa}
 #loginBox .caps{color:#ffa;font-size:11px;margin-bottom:6px;display:none}
 
+/* Light Theme */
+body.light-theme #desktop{background:linear-gradient(135deg,#e8e0f0 0%,#d0d8f0 30%,#d4e4f0 60%,#e8d8f0 100%)}
+body.light-theme #desktopWatermark{color:rgba(0,0,0,.06)}
+body.light-theme .deskIcon .label{color:#333;text-shadow:0 1px 3px rgba(255,255,255,.6)}
+body.light-theme .deskIcon:hover{background:rgba(0,0,0,.08)}
+body.light-theme #taskbar{background:rgba(240,240,245,.9);border-top:1px solid rgba(0,0,0,.08)}
+body.light-theme #startBtn{color:#333}
+body.light-theme #clock{color:#555}
+body.light-theme #clock .date{color:#888}
+body.light-theme #sysTray{border-left-color:rgba(0,0,0,.1)}
+body.light-theme .tbWin{background:rgba(0,0,0,.06);color:#555}
+body.light-theme .tbWin:hover{background:rgba(0,0,0,.1)}
+body.light-theme .tbWin.active{background:rgba(0,0,0,.12);color:#222}
+body.light-theme .window{background:rgba(245,245,250,.95);border-color:rgba(0,0,0,.12);box-shadow:0 8px 40px rgba(0,0,0,.15)}
+body.light-theme .window.focused{border-color:rgba(0,0,0,.2)}
+body.light-theme .window.focused .window-titlebar{background:rgba(0,0,0,.03)}
+body.light-theme .window-titlebar .winTitle{color:#444}
+body.light-theme .winBtn{color:#888}
+body.light-theme .winBtn:hover{background:rgba(0,0,0,.08);color:#222}
+body.light-theme #startMenu{background:rgba(245,245,250,.96);border-color:rgba(0,0,0,.1)}
+body.light-theme #startHeader .userInfo .name{color:#222}
+body.light-theme #startHeader .userInfo .status{color:#888}
+body.light-theme .startApp{color:#555}
+body.light-theme .startApp:hover{background:rgba(0,0,0,.06);color:#222}
+body.light-theme #startFooter button{color:#888}
+body.light-theme .window-content::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15)}
+body.light-theme .notepad-body textarea{background:rgba(255,255,255,.8);color:#222}
+body.light-theme .explorer-toolbar button{color:#666}
+body.light-theme .explorer-toolbar .addrBar{background:rgba(255,255,255,.8);color:#333}
+body.light-theme .sideItem{color:#666}
+body.light-theme .sideItem:hover{background:rgba(0,0,0,.06);color:#333}
+body.light-theme .sideItem.active{background:rgba(0,0,0,.1);color:#222}
+body.light-theme .fileItem .name{color:#555}
+body.light-theme .fileItem:hover{background:rgba(0,0,0,.06)}
+body.light-theme .explorer-sidebar{border-right-color:rgba(0,0,0,.08)}
+body.light-theme .notepad-toolbar button{color:#666}
+body.light-theme .notepad-body textarea::selection{background:rgba(0,120,215,.3)}
+body.light-theme .calc-display .result{color:#222}
+body.light-theme .calc-grid button{background:rgba(0,0,0,.06);color:#222}
+body.light-theme .calc-grid button.op{background:rgba(100,100,200,.15)}
+body.light-theme .calc-grid button.eq{background:rgba(0,120,215,.25)}
+body.light-theme .calc-grid button.clr{background:rgba(200,60,60,.15)}
+body.light-theme #loginBox{background:rgba(255,255,255,.95);border-color:rgba(0,0,0,.12)}
+body.light-theme #loginBox h1{color:#333}
+body.light-theme #loginBox .field{background:rgba(0,0,0,.04);border-color:rgba(0,0,0,.1);color:#333}
+body.light-theme #loginBox .field::placeholder{color:#aaa}
+body.light-theme #loginBox .toggle{color:#888}
+body.light-theme #loginBox .toggle:hover{color:#555}
+body.light-theme .calc-display{background:rgba(0,0,0,.06)}
+body.light-theme .context-menu{background:rgba(245,245,250,.97);border-color:rgba(0,0,0,.15)}
+body.light-theme .context-menu-item{color:#444}
+body.light-theme .context-menu-item:hover{background:rgba(0,0,0,.08);color:#222}
+
 /* Animations */
 @keyframes fadeIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
 @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
@@ -758,8 +811,8 @@ function launchMarketApp(app) {
 }
 
 function launchSnake() {
-  const G=20,SZ=15;const c=document.createElement('canvas');c.width=G*SZ;c.height=G*SZ+20;c.style.cssText='display:block;margin:auto;background:#111'
-  const ctx=c.getContext('2d');const w=createWindow({title:'Snake Game',icon:'🐍',width:G*SZ+20,height:G*SZ+80,minWidth:300,minHeight:340,content:c})
+  const G=20,SZ=20;const c=document.createElement('canvas');c.width=G*SZ;c.height=G*SZ+40;c.style.cssText='display:block;margin:auto;background:#111'
+  const ctx=c.getContext('2d');const w=createWindow({title:'Snake Game',icon:'🐍',width:G*SZ+24,height:G*SZ+100,minWidth:360,minHeight:420,content:c})
   let snake=[{x:5,y:5}],dir={x:1,y:0},food={x:10,y:5},nextDir={x:1,y:0},score=0,high=parseInt(localStorage.getItem('kilton_snake_high')||'0'),dead=false,paused=false,speed=150
   function placeFood(){food={x:Math.floor(Math.random()*G),y:Math.floor(Math.random()*G)};if(snake.some(s=>s.x===food.x&&s.y===food.y))placeFood()}
   function step(){
@@ -811,8 +864,8 @@ function launchSnake() {
 
 function launchTetris() {
   const COLS=10,ROWS=20,BS=24,SIDE=140
-  const c=document.createElement('canvas');c.width=COLS*BS+SIDE;c.height=ROWS*BS;c.style.cssText='display:block;margin:auto;background:#111'
-  const ctx=c.getContext('2d');const w=createWindow({title:'Tetris',icon:'🧱',width:COLS*BS+SIDE+20,height:ROWS*BS+45,minWidth:380,minHeight:460,content:c})
+  const c=document.createElement('canvas');c.width=COLS*BS+SIDE;c.height=ROWS*BS+10;c.style.cssText='display:block;margin:auto;background:#111'
+  const ctx=c.getContext('2d');const w=createWindow({title:'Tetris',icon:'🧱',width:COLS*BS+SIDE+24,height:ROWS*BS+64,minWidth:440,minHeight:500,content:c})
   const COLORS=['#00f0f0','#f0f000','#a000f0','#0000f0','#f0a000','#00f000','#f00000']
   const PIECES=[[[1,1,1,1]],[[1,1],[1,1]],[[1,0],[1,0],[1,1]],[[0,1],[0,1],[1,1]],[[1,0],[1,1],[0,1]],[[0,1],[1,1],[1,0]],[[1,1,1],[0,1,0]]]
   let board=Array.from({length:ROWS},()=>Array(COLS).fill(0))
@@ -935,24 +988,42 @@ function launchChat() {
 
 function launchSettings() {
   const d=document.createElement('div');d.style.cssText='display:flex;flex-direction:column;padding:20px;gap:12px;font-size:13px'
-  d.innerHTML=`<div style="font-size:16px;font-weight:500;margin-bottom:4px">⚙️ System Settings</div>`
-  function addRow(label,ctrl){const r=document.createElement('div');r.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)';r.innerHTML=`<span style="color:#aaa">${label}</span>`;r.appendChild(ctrl);d.appendChild(r)}
-  // Username
-  const uName=document.createElement('span');uName.style.cssText='color:#fff';uName.textContent=currentUser||'User';addRow('Username',uName)
-  // Version
-  const ver=document.createElement('span');ver.style.cssText='color:#888';ver.textContent='Kilton OS 1.0.0';addRow('OS Version',ver)
+  d.innerHTML=`<div style="font-size:18px;font-weight:600;margin-bottom:6px">⚙️ Settings — Kilton OS 1.5</div>`
+  function addRow(label,ctrl){const r=document.createElement('div');r.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)';r.innerHTML=`<span style="color:#ccc">${label}</span>`;r.appendChild(ctrl);d.appendChild(r)}
   // Theme toggle
-  const thm=document.createElement('button');thm.textContent='🎨 Default Dark';thm.style.cssText='padding:4px 12px;border:none;border-radius:4px;background:rgba(255,255,255,.1);color:#ddd;cursor:pointer;font-size:12px'
-  thm.addEventListener('click',()=>showToast('More themes coming soon!'));addRow('Theme',thm)
-  // Clear data
-  const clr=document.createElement('button');clr.textContent='🗑️ Clear All Data';clr.style.cssText='padding:4px 12px;border:none;border-radius:4px;background:rgba(200,60,60,.3);color:#faa;cursor:pointer;font-size:12px'
-  clr.addEventListener('click',()=>{if(confirm('Clear all Kilton data? This cannot be undone.')){localStorage.clear();showToast('Data cleared. Refresh page.');setTimeout(()=>location.reload(),1000)}});addRow('Reset',clr)
+  let isLight = localStorage.getItem('kilton_theme') === 'light'
+  const thmBtn = document.createElement('button');thmBtn.style.cssText='padding:5px 14px;border:none;border-radius:4px;cursor:pointer;font-size:12px'
+  function updateThemeUI(){thmBtn.textContent=isLight?'☀️ Light':'🌙 Dark';thmBtn.style.background=isLight?'rgba(0,0,0,.1)':'rgba(255,255,255,.1)';thmBtn.style.color=isLight?'#333':'#ddd'}
+  updateThemeUI()
+  thmBtn.addEventListener('click',()=>{
+    isLight = !isLight
+    localStorage.setItem('kilton_theme', isLight ? 'light' : 'dark')
+    document.body.classList.toggle('light-theme', isLight)
+    updateThemeUI()
+    showToast('Theme: ' + (isLight ? '☀️ Light' : '🌙 Dark'))
+  })
+  addRow('Theme', thmBtn)
+  // Show Desktop Files
+  const showFiles = localStorage.getItem('kilton_showDesktopFiles') !== 'false'
+  const sfBtn = document.createElement('button');sfBtn.textContent = showFiles ? '✅ On' : '❌ Off'
+  sfBtn.style.cssText='padding:5px 14px;border:none;border-radius:4px;background:rgba(255,255,255,.1);color:#ddd;cursor:pointer;font-size:12px'
+  sfBtn.addEventListener('click',()=>{const v=localStorage.getItem('kilton_showDesktopFiles')!=='false';localStorage.setItem('kilton_showDesktopFiles',v?'false':'true');sfBtn.textContent=v?'❌ Off':'✅ On';showToast('Desktop files '+(v?'hidden':'shown'));initDesktop()})
+  addRow('Desktop files', sfBtn)
+  // Version
+  const ver = document.createElement('span');ver.style.cssText='color:#fff';ver.textContent='1.5.0';addRow('OS Version', ver)
+  // User
+  const uName=document.createElement('span');uName.style.cssText='color:#fff';uName.textContent=currentUser||'User';addRow('Username',uName)
   // App count
   const cnt=document.createElement('span');cnt.style.cssText='color:#fff';cnt.textContent=String(BUILT_IN_APPS.length+getInstalledIds().length);addRow('Apps installed',cnt)
+  // Windows open
+  const wc=document.createElement('span');wc.style.cssText='color:#fff';wc.textContent=String(STATE.windows.length);addRow('Windows open',wc)
   // Storage
   let size=0;try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('kilton_'))size+=localStorage.getItem(k).length*2}}catch(e){}
   const st=document.createElement('span');st.style.cssText='color:#fff';st.textContent=size>1024?(size/1024).toFixed(1)+' KB':size+' B';addRow('Storage used',st)
-  createWindow({title:'Settings', icon:'⚙️', width:400, height:380, minWidth:320, minHeight:300, content:d})
+  // Clear data
+  const clr=document.createElement('button');clr.textContent='🗑️ Clear All Data';clr.style.cssText='padding:5px 14px;border:none;border-radius:4px;background:rgba(200,60,60,.3);color:#faa;cursor:pointer;font-size:12px'
+  clr.addEventListener('click',()=>{if(confirm('Clear all Kilton data? This cannot be undone.')){localStorage.clear();showToast('Data cleared. Refresh page.');setTimeout(()=>location.reload(),1000)}});addRow('Reset',clr)
+  createWindow({title:'Settings', icon:'⚙️', width:420, height:440, minWidth:340, minHeight:340, content:d})
 }
 
 // --- Launch App ---
@@ -1377,7 +1448,7 @@ function launchAbout() {
   div.innerHTML = `
     <div class="logo">⬡</div>
     <h2>Kilton OS</h2>
-    <div class="ver">Version 1.0.0</div>
+    <div class="ver">Version 1.5.0</div>
     <div class="desc">A web-based desktop environment inspired by Windows. Built with HTML, CSS, and JavaScript.</div>
     <div class="desc" style="font-size:11px;color:#666">© 2026 Kilton. All rights reserved.</div>
     <div class="copy">Made with ❤️</div>`
@@ -1900,7 +1971,7 @@ function launchAI() {
 
     // --- Who are you ---
     if (lower.includes('who are you') || lower.includes('what are you') || lower.includes('your name')) {
-      return "I'm **Kilton AI**, version 2.0 — your built-in OS assistant.<br><br>🧠 I can open apps, manage files & folders, do math, search files, find & install Market apps, control windows, tell jokes, and more.<br><br>Type `help` for a full list!"
+      return "I'm **Kilton AI v3** — your built-in OS assistant for **Kilton OS 1.5**.<br><br>🧠 I can open/close/minimize apps, manage files & folders, do math, search files, install Market apps, control windows, tell jokes, chain multiple commands with `and`, and more.<br><br>Type `help` for a full list!"
     }
 
     // --- How are you ---
@@ -1924,12 +1995,13 @@ function launchAI() {
       return `🤖 **Kilton AI — Help**<br><br>
 📱 **Apps:** open [app], close [app], minimize [app], install [app]<br>
 📁 **Files:** list files, read [file], find [query], create file [name], delete [name], rename [old] to [new]<br>
-📂 **Folders:** create folder [name], list files<br>
+📂 **Folders:** create folder [name], list files, delete file [name], rename file [from] to [to]<br>
 🧮 **Math:** calculate [expression], what is [expression]<br>
 🛒 **Market:** search market [query], install [app], my apps<br>
-💻 **System:** system info, time, date<br>
-🎮 **Fun:** joke, hello, bye<br><br>
-<i>I understand natural language! Try: "open browser and tell me the time"</i>`
+💻 **System:** system info, time, date, settings<br>
+🎮 **Fun:** joke, hello, bye, snake, tetris<br>
+🔗 **Chain:** `open browser and tell me the time` — chain any commands with "and" or "then"<br><br>
+<i>Kilton OS 1.5 — I understand natural language! Try: "open browser and play snake"</i>`
     }
 
     // --- Default: fallback ---
@@ -1962,7 +2034,7 @@ function launchAI() {
   }
   function hideTyping() { const el = document.getElementById('typingIndicator'); if (el) el.remove() }
 
-  addMsg('ai', "Hello! I'm **Kilton AI v2**. I can open apps, manage files, do math, search the Market, and more. Try typing `help` to see everything I can do!")
+  addMsg('ai', "Hello! I'm **Kilton AI v3** — your assistant for **Kilton OS 1.5**. I can open apps, manage files, do math, search the Market, chain commands, and more. Try `help` to see everything!")
 
   function handleSend() {
     const text = inputEl.value.trim()
@@ -2417,6 +2489,9 @@ REGISTERED_APPS['browser'] = launchBrowser
 
 // --- Desktop Start (after auth) ---
 function startDesktop() {
+  // Apply theme
+  const savedTheme = localStorage.getItem('kilton_theme')
+  if (savedTheme === 'light') document.body.classList.add('light-theme')
   // Show loading overlay
   const loadEl = document.getElementById('loading')
   loadEl.classList.remove('hidden')
