@@ -416,13 +416,20 @@ const BUILT_IN_APPS = [
 ]
 
 const MARKET_APPS = [
-  { id:'snake',    ico:'🐍', label:'Snake Game',     desc:'Classic snake arcade game',  cat:'Games',   dev:'Kilton' },
-  { id:'tetris',   ico:'🧱', label:'Tetris',          desc:'Stack blocks and clear lines',cat:'Games',   dev:'Kilton' },
-  { id:'paint',    ico:'🎨', label:'Kilton Paint',    desc:'Simple drawing application',  cat:'Tools',   dev:'Kilton' },
-  { id:'terminal', ico:'💻', label:'Terminal',        desc:'Command line interface',      cat:'Tools',   dev:'Kilton' },
-  { id:'music',    ico:'🎵', label:'Music Player',    desc:'Play your uploaded music',    cat:'Media',   dev:'Kilton' },
-  { id:'chat',     ico:'💬', label:'Kilton Chat',     desc:'Local messaging app',         cat:'Social',  dev:'Kilton' },
-  { id:'settings', ico:'⚙️', label:'Settings',        desc:'System preferences',          cat:'System',  dev:'Kilton' },
+  { id:'snake',    ico:'🐍', label:'Snake Game',      desc:'Classic snake arcade game',     cat:'Games',   dev:'Kilton' },
+  { id:'tetris',   ico:'🧱', label:'Tetris',           desc:'Stack blocks and clear lines',  cat:'Games',   dev:'Kilton' },
+  { id:'minesweep',ico:'💣', label:'Minesweeper',      desc:'Find mines without blowing up', cat:'Games',   dev:'Kilton' },
+  { id:'game2048', ico:'🎮', label:'2048',             desc:'Merge tiles to reach 2048',     cat:'Games',   dev:'Kilton' },
+  { id:'pong',     ico:'🏓', label:'Pong',             desc:'Classic paddle ball game',      cat:'Games',   dev:'Kilton' },
+  { id:'tictactoe',ico:'❌', label:'Tic Tac Toe',      desc:'Play against AI',              cat:'Games',   dev:'Kilton' },
+  { id:'memory',   ico:'🃏', label:'Memory Game',      desc:'Match pairs of cards',          cat:'Games',   dev:'Kilton' },
+  { id:'paint',    ico:'🎨', label:'Kilton Paint',     desc:'Simple drawing application',    cat:'Tools',   dev:'Kilton' },
+  { id:'terminal', ico:'💻', label:'Terminal',         desc:'Command line interface',        cat:'Tools',   dev:'Kilton' },
+  { id:'passgen',  ico:'🔑', label:'Password Gen',     desc:'Generate secure passwords',     cat:'Tools',   dev:'Kilton' },
+  { id:'stopwatch',ico:'⏱️', label:'Stopwatch',        desc:'Timer with lap support',        cat:'Tools',   dev:'Kilton' },
+  { id:'music',    ico:'🎵', label:'Music Player',     desc:'Play your uploaded music',      cat:'Media',   dev:'Kilton' },
+  { id:'chat',     ico:'💬', label:'Kilton Chat',      desc:'Local messaging app',           cat:'Social',  dev:'Kilton' },
+  { id:'settings', ico:'⚙️', label:'Settings',         desc:'System preferences',            cat:'System',  dev:'Kilton' },
 ]
 
 function getInstalledIds() {
@@ -798,8 +805,15 @@ function launchMarketApp(app) {
   switch(app.id) {
     case 'snake': launchSnake(); break
     case 'tetris': launchTetris(); break
+    case 'minesweep': launchMinesweeper(); break
+    case 'game2048': launch2048(); break
+    case 'pong': launchPong(); break
+    case 'tictactoe': launchTicTacToe(); break
+    case 'memory': launchMemory(); break
     case 'paint': launchPaint(); break
     case 'terminal': launchTerminal(); break
+    case 'passgen': launchPassGen(); break
+    case 'stopwatch': launchStopwatch(); break
     case 'music': launchMusicPlayer(); break
     case 'chat': launchChat(); break
     case 'settings': launchSettings(); break
@@ -927,6 +941,182 @@ function launchTetris() {
   })
   function step(){if(!dead&&!paused){move(0,1);draw()}}
   w._interval=setInterval(step,speed())
+}
+
+function launchMinesweeper() {
+  const R=10,C=10,M=15,BS=30
+  const c=document.createElement('canvas');c.width=C*BS;c.height=R*BS+24;c.style.cssText='display:block;margin:auto;background:#222'
+  const ctx=c.getContext('2d');const w=createWindow({title:'Minesweeper',icon:'💣',width:C*BS+16,height:R*BS+70,minWidth:280,minHeight:320,content:c})
+  let board=[],gameOver=false,win=false,flags=0
+  function init(){board=[];gameOver=false;win=false;flags=0;for(let i=0;i<R;i++){board[i]=[];for(let j=0;j<C;j++)board[i][j]={mine:false,revealed:false,flag:false,adj:0}}
+    let placed=0;while(placed<M){const r=Math.floor(Math.random()*R),c2=Math.floor(Math.random()*C);if(!board[r][c2].mine){board[r][c2].mine=true;placed++}}
+    for(let i=0;i<R;i++)for(let j=0;j<C;j++){let a=0;for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++){const ni=i+di,nj=j+dj;if(ni>=0&&ni<R&&nj>=0&&nj<C&&board[ni][nj].mine)a++};board[i][j].adj=a}
+  draw()}
+  function reveal(r,c){if(r<0||r>=R||c<0||c>=C||board[r][c].revealed||board[r][c].flag)return
+    board[r][c].revealed=true;if(board[r][c].mine){gameOver=true;draw();return}
+    if(board[r][c].adj===0)for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++)reveal(r+di,c+dj)
+    checkWin()}
+  function checkWin(){const all=board.every(r=>r.every(c=>(c.mine&&!c.revealed)||(!c.mine&&c.revealed)));if(all){win=true;draw()}}
+  function draw(){ctx.fillStyle='#222';ctx.fillRect(0,0,c.width,c.height)
+    for(let i=0;i<R;i++)for(let j=0;j<C;j++){const b=board[i][j],x=j*BS,y=i*BS
+      ctx.strokeStyle='#444';ctx.strokeRect(x,y,BS,BS)
+      if(b.revealed){ctx.fillStyle=b.mine?'#500':'#2a2a2a';ctx.fillRect(x+1,y+1,BS-2,BS-2)
+        if(b.mine){ctx.fillStyle='#f44';ctx.font='16px sans-serif';ctx.fillText('💣',x+7,y+20)}
+        else if(b.adj>0){ctx.fillStyle=['','#00f','#0a0','#f00','#008','#800','#088','#000','#888'][b.adj];ctx.font='bold 14px sans-serif';ctx.fillText(b.adj,x+10,y+18)}
+      }else if(b.flag){ctx.fillStyle='rgba(255,100,100,.2)';ctx.fillRect(x+1,y+1,BS-2,BS-2);ctx.fillStyle='#f44';ctx.font='16px sans-serif';ctx.fillText('🚩',x+7,y+20)}}
+    ctx.fillStyle=gameOver?'#f88':win?'#8f8':'#888';ctx.font='11px sans-serif';ctx.fillText(gameOver?'💥 Game Over!' : win?'🎉 You Win!' : `💣 Mines: ${M-flags}`,5,R*BS+14);ctx.fillStyle='#555';ctx.font='9px sans-serif';ctx.fillText('Left:reveal Right:flag',c.width-130,R*BS+14)}
+  c.addEventListener('click',e=>{if(gameOver||win){init();return}const rect=c.getBoundingClientRect(),j=Math.floor((e.clientX-rect.left)/BS),i=Math.floor((e.clientY-rect.top)/BS);if(i>=0&&i<R&&j>=0&&j<C&&!board[i][j].flag)reveal(i,j);draw()})
+  c.addEventListener('contextmenu',e=>{e.preventDefault();if(gameOver||win)return;const rect=c.getBoundingClientRect(),j=Math.floor((e.clientX-rect.left)/BS),i=Math.floor((e.clientY-rect.top)/BS);if(i>=0&&i<R&&j>=0&&j<C&&!board[i][j].revealed){board[i][j].flag=!board[i][j].flag;flags+=board[i][j].flag?1:-1}draw()})
+  init()
+}
+
+function launch2048() {
+  const S=4,BS=80,G=6;const total=S*BS+(S+1)*G
+  const c=document.createElement('canvas');c.width=total;c.height=total+24;c.style.cssText='display:block;margin:auto;background:#1a1a2e'
+  const ctx=c.getContext('2d');const w=createWindow({title:'2048',icon:'🎮',width:total+16,height:total+70,minWidth:300,minHeight:340,content:c})
+  let grid=Array.from({length:S},()=>Array(S).fill(0)),score=0,over=false,high=parseInt(localStorage.getItem('kilton_2048_high')||'0')
+  const colors={0:'#1a1a2e',2:'#eee4da',4:'#ede0c8',8:'#f2b179',16:'#f59563',32:'#f67c5f',64:'#f65e3b',128:'#edcf72',256:'#edcc61',512:'#edc850',1024:'#edc53f',2048:'#edc22e',4096:'#3c3a32',8192:'#3c3a32'}
+  function addTile(){const empty=[];for(let i=0;i<S;i++)for(let j=0;j<S;j++)if(!grid[i][j])empty.push({i,j});if(empty.length){const t=empty[Math.floor(Math.random()*empty.length)];grid[t.i][t.j]=Math.random()<.9?2:4}}
+  function slide(row){const f=row.filter(v=>v);const n=Array(S).fill(0);let pos=0;for(let i=0;i<f.length;i++){if(i<f.length-1&&f[i]===f[i+1]){n[pos]=f[i]*2;score+=n[pos];i++}else n[pos]=f[i];pos++}return n}
+  function move(d){const g=grid.map(r=>[...r]);let moved=false;if(d==='l')for(let i=0;i<S;i++){const n=slide(grid[i]);for(let j=0;j<S;j++)if(grid[i][j]!==n[j])moved=true;grid[i]=n}
+    else if(d==='r')for(let i=0;i<S;i++){grid[i].reverse();const n=slide(grid[i]);n.reverse();for(let j=0;j<S;j++)if(grid[i][j]!==n[j])moved=true;grid[i]=n}
+    else if(d==='u')for(let j=0;j<S;j++){const col=[];for(let i=0;i<S;i++)col.push(grid[i][j]);const n=slide(col);for(let i=0;i<S;i++){if(grid[i][j]!==n[i])moved=true;grid[i][j]=n[i]}}
+    else if(d==='d')for(let j=0;j<S;j++){const col=[];for(let i=S-1;i>=0;i--)col.push(grid[i][j]);const n=slide(col);n.reverse();for(let i=0;i<S;i++){if(grid[i][j]!==n[i])moved=true;grid[i][j]=n[i]}}
+    if(moved){addTile();draw()}
+    if(!canMove()){over=true;if(score>high){high=score;localStorage.setItem('kilton_2048_high',String(high))}draw()}}
+  function canMove(){for(let i=0;i<S;i++)for(let j=0;j<S;j++){if(!grid[i][j])return true;if(j<S-1&&grid[i][j]===grid[i][j+1])return true;if(i<S-1&&grid[i][j]===grid[i+1][j])return true}return false}
+  function draw(){ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,c.width,c.height)
+    for(let i=0;i<S;i++)for(let j=0;j<S;j++){const v=grid[i][j];ctx.fillStyle=colors[v]||'#3c3a32';const x=j*(BS+G)+G,y=i*(BS+G)+G;ctx.beginPath();ctx.roundRect(x,y,BS,BS,6);ctx.fill()
+      if(v){ctx.fillStyle=v<=4?'#776e65':'#f9f6f2';ctx.font=v>=1000?'bold 18px sans-serif':v>=100?'bold 22px sans-serif':'bold 26px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(v,x+BS/2,y+BS/2)}}
+    ctx.fillStyle='#888';ctx.font='11px sans-serif';ctx.textAlign='left';ctx.fillText('Score: '+score+'  Best: '+high,G,R*BS+G*2+14);ctx.fillStyle='#555';ctx.font='9px sans-serif';ctx.fillText('Arrow keys / Swipe',total-130,R*BS+G*2+14)
+    if(over){ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,c.width,R*BS+G*3);ctx.fillStyle='#fff';ctx.font='22px sans-serif';ctx.textAlign='center';ctx.fillText('Game Over! 🎮',total/2,total/2-10);ctx.fillStyle='#aaa';ctx.font='12px sans-serif';ctx.fillText('Score: '+score, total/2, total/2+16);ctx.fillStyle='#888';ctx.font='11px sans-serif';ctx.fillText('Click to restart',total/2,total/2+36);ctx.textAlign='left'}}
+  document.addEventListener('keydown',function h(e){if(w.state==='minimized')return
+    const k=e.key;if(over||!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(k)){if(over&&(k===' '||k==='Enter')){grid=Array.from({length:S},()=>Array(S).fill(0));score=0;over=false;addTile();addTile();draw()}return}
+    e.preventDefault();move({ArrowLeft:'l',ArrowRight:'r',ArrowUp:'u',ArrowDown:'d'}[k])})
+  c.addEventListener('click',()=>{if(over){grid=Array.from({length:S},()=>Array(S).fill(0));score=0;over=false;addTile();addTile();draw()}})
+  // Touch
+  let tx=0,ty=0;c.addEventListener('touchstart',e=>{const t=e.touches[0];tx=t.clientX;ty=t.clientY})
+  c.addEventListener('touchend',e=>{if(over)return;const t=e.changedTouches[0],dx=t.clientX-tx,dy=t.clientY-ty
+    if(Math.abs(dx)>Math.abs(dy))move(dx>0?'r':'l');else move(dy>0?'d':'u')})
+  addTile();addTile();draw()
+}
+
+function launchPong() {
+  const W=500,H=300,PW=8,PH=40,BS=6
+  const c=document.createElement('canvas');c.width=W;c.height=H+20;c.style.cssText='display:block;margin:auto;background:#111'
+  const ctx=c.getContext('2d');const w=createWindow({title:'Pong',icon:'🏓',width:W+16,height:H+70,minWidth:380,minHeight:320,content:c})
+  let ball={x:W/2,y:H/2,dx:3,dy:2},p1={y:H/2-PH/2},p2={y:H/2-PH/2},s1=0,s2=0,paused=false
+  function reset(){ball={x:W/2,y:H/2,dx:3*(Math.random()>.5?1:-1),dy:2*(Math.random()>.5?1:-1)}}
+  function step(){if(paused)return
+    ball.x+=ball.dx;ball.y+=ball.dy
+    if(ball.y<0||ball.y>H)ball.dy=-ball.dy
+    if(ball.x<PW&&ball.y>p1.y&&ball.y<p1.y+PH){ball.dx=-ball.dx;ball.x=PW+1}
+    if(ball.x>W-PW&&ball.y>p2.y&&ball.y<p2.y+PH){ball.dx=-ball.dx;ball.x=W-PW-1}
+    if(ball.x<0){s2++;reset()}
+    if(ball.x>W){s1++;reset()}
+    // AI
+    p2.y+=ball.y>(p2.y+PH/2)?2.5:-2.5
+    draw()}
+  function draw(){ctx.fillStyle='#111';ctx.fillRect(0,0,c.width,c.height)
+    ctx.fillStyle='#fff';ctx.fillRect(2,p1.y,PW,PH);ctx.fillRect(W-PW-2,p2.y,PW,PH)
+    ctx.beginPath();ctx.arc(ball.x,ball.y,BS,0,Math.PI*2);ctx.fill()
+    ctx.setLineDash([4,6]);ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.strokeStyle='rgba(255,255,255,.15)';ctx.stroke();ctx.setLineDash([])
+    ctx.fillStyle='#888';ctx.font='11px sans-serif';ctx.fillText(s1+' : '+s2,10,H+14);ctx.fillStyle='#555';ctx.font='9px sans-serif';ctx.fillText('Mouse:move paddle P:pause',W-160,H+14)
+    if(paused){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,0,W,H);ctx.fillStyle='#fff';ctx.font='18px sans-serif';ctx.fillText('PAUSED',W/2-40,H/2-4)}}
+  c.addEventListener('mousemove',e=>{const rect=c.getBoundingClientRect();p1.y=Math.max(0,Math.min(H-PH,e.clientY-rect.top-20))})
+  document.addEventListener('keydown',function h(e){if(w.state==='minimized')return;if(e.key==='p'||e.key==='P'||e.key===' '){e.preventDefault();paused=!paused}})
+  w._interval=setInterval(step,1000/60)
+}
+
+function launchTicTacToe() {
+  const S=3,BS=90,sz=S*BS
+  const c=document.createElement('canvas');c.width=sz;c.height=sz+20;c.style.cssText='display:block;margin:auto;background:#1a1a2e'
+  const ctx=c.getContext('2d');const w=createWindow({title:'Tic Tac Toe',icon:'❌',width:sz+16,height:sz+70,minWidth:260,minHeight:300,content:c})
+  let board=Array.from({length:S},()=>Array(S).fill('')),turn='X',over=false,msg=''
+  function checkWin(b){const lines=[[b[0][0],b[0][1],b[0][2]],[b[1][0],b[1][1],b[1][2]],[b[2][0],b[2][1],b[2][2]],[b[0][0],b[1][0],b[2][0]],[b[0][1],b[1][1],b[2][1]],[b[0][2],b[1][2],b[2][2]],[b[0][0],b[1][1],b[2][2]],[b[0][2],b[1][1],b[2][0]]]
+    for(const l of lines)if(l[0]&&l[0]===l[1]&&l[1]===l[2])return l[0];return b.every(r=>r.every(c=>c))?'tie':''}
+  function aiMove(){let best=-1,bestScore=-Infinity;for(let i=0;i<S;i++)for(let j=0;j<S;j++){if(board[i][j])continue;board[i][j]='O';const s=minimax(board,0,false);board[i][j]='';if(s>bestScore){bestScore=s;best=i*S+j}}
+    if(best>=0){const r=Math.floor(best/S),c2=best%S;board[r][c2]='O';turn='X';const res=checkWin(board);if(res){over=true;msg=res==='O'?'O wins!' : res==='tie'?'Tie!' : ''}draw()}}
+  function minimax(b,depth,isMax){const w2=checkWin(b);if(w2==='O')return 10-depth;if(w2==='X')return depth-10;if(w2==='tie')return 0
+    if(isMax){let best=-Infinity;for(let i=0;i<S;i++)for(let j=0;j<S;j++){if(b[i][j])continue;b[i][j]='O';best=Math.max(best,minimax(b,depth+1,false));b[i][j]=''}return best}
+    else{let best=Infinity;for(let i=0;i<S;i++)for(let j=0;j<S;j++){if(b[i][j])continue;b[i][j]='X';best=Math.min(best,minimax(b,depth+1,true));b[i][j]=''}return best}}
+  function draw(){ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,c.width,c.height)
+    for(let i=0;i<S;i++)for(let j=0;j<S;j++){const x=j*BS,y=i*BS;ctx.strokeStyle='rgba(255,255,255,.15)';ctx.strokeRect(x,y,BS,BS)
+      if(board[i][j]){ctx.font='bold 40px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=board[i][j]==='X'?'#4af':'#fa4';ctx.fillText(board[i][j],x+BS/2,y+BS/2)}}
+    ctx.textAlign='left';ctx.fillStyle='#888';ctx.font='11px sans-serif';if(over)ctx.fillText(msg||'Game Over — click to restart',10,S*BS+14);else ctx.fillText(turn==='X'?'Your turn (X)':'Waiting for AI...',10,S*BS+14)}
+  c.addEventListener('click',e=>{if(over){board=Array.from({length:S},()=>Array(S).fill(''));turn='X';over=false;msg='';draw();return}
+    if(turn!=='X'||over)return;const rect=c.getBoundingClientRect(),j=Math.floor((e.clientX-rect.left)/BS),i=Math.floor((e.clientY-rect.top)/BS)
+    if(i>=0&&i<S&&j>=0&&j<S&&!board[i][j]){board[i][j]='X';const res=checkWin(board);if(res){over=true;msg=res==='X'?'You win!' : 'Tie!';draw();return}turn='O';draw();setTimeout(aiMove,200)}}
+  )
+  draw()
+}
+
+function launchMemory() {
+  const emojis=['🍎','🍊','🍋','🍇','🍓','🍒','🍑','🥝']
+  const cards=[...emojis,...emojis];for(let i=cards.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[cards[i],cards[j]]=[cards[j],cards[i]]}
+  const COLS=4,BS=70,G=6
+  const c=document.createElement('canvas');c.width=COLS*(BS+G)+G;c.height=COLS*(BS+G)+G+20;c.style.cssText='display:block;margin:auto;background:#1a1a2e'
+  const ctx=c.getContext('2d');const w=createWindow({title:'Memory Game',icon:'🃏',width:c.width+16,height:c.height+60,minWidth:300,minHeight:340,content:c})
+  let flipped=[],matched=[],lock=false,moves=0
+  function draw(){ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,c.width,c.height)
+    for(let i=0;i<cards.length;i++){const x=(i%COLS)*(BS+G)+G,y=Math.floor(i/COLS)*(BS+G)+G
+      if(matched.includes(i)){ctx.fillStyle='rgba(100,255,100,.15)';ctx.beginPath();ctx.roundRect(x,y,BS,BS,8);ctx.fill();ctx.font='30px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(cards[i],x+BS/2,y+BS/2)}
+      else if(flipped.includes(i)){ctx.fillStyle='#2a2a3e';ctx.beginPath();ctx.roundRect(x,y,BS,BS,8);ctx.fill();ctx.font='30px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(cards[i],x+BS/2,y+BS/2)}
+      else{ctx.fillStyle='#3a3a5e';ctx.beginPath();ctx.roundRect(x,y,BS,BS,8);ctx.fill();ctx.fillStyle='rgba(255,255,255,.05)';ctx.font='24px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('❓',x+BS/2,y+BS/2)}}
+    ctx.textAlign='left';ctx.fillStyle='#888';ctx.font='11px sans-serif';ctx.fillText('Moves: '+moves+'  Matched: '+matched.length/2+'/'+emojis.length,G,c.height-8)
+    if(matched.length===cards.length){ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='#8f8';ctx.font='22px sans-serif';ctx.textAlign='center';ctx.fillText('🎉 You won!',c.width/2,c.height/2-10);ctx.fillStyle='#aaa';ctx.font='12px sans-serif';ctx.fillText('Click to restart',c.width/2,c.height/2+16);ctx.textAlign='left'}}
+  c.addEventListener('click',e=>{if(matched.length===cards.length){moves=0;matched=[];flipped=[];for(let i=cards.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[cards[i],cards[j]]=[cards[j],cards[i]]}draw();return}
+    if(lock)return;const rect=c.getBoundingClientRect(),j=Math.floor((e.clientX-rect.left)/(BS+G)),i2=Math.floor((e.clientY-rect.top)/(BS+G));const idx=i2*COLS+j
+    if(idx<0||idx>=cards.length||flipped.includes(idx)||matched.includes(idx))return
+    flipped.push(idx);moves++;draw()
+    if(flipped.length===2){lock=true;if(cards[flipped[0]]===cards[flipped[1]]){matched.push(...flipped);flipped=[];lock=false;draw()}else{setTimeout(()=>{flipped=[];lock=false;draw()},800)}}
+  })
+  draw()
+}
+
+function launchPassGen() {
+  const d=document.createElement('div');d.style.cssText='padding:20px;font-size:13px;display:flex;flex-direction:column;gap:14px'
+  d.innerHTML=`<div style="font-size:16px;font-weight:500">🔑 Password Generator</div>
+    <div style="display:flex;gap:8px"><input id="pgOut" readonly style="flex:1;padding:8px;border:none;border-radius:4px;background:rgba(0,0,0,.3);color:#0f0;font-family:monospace;font-size:16px"><button id="pgCopy" style="padding:8px 12px;border:none;border-radius:4px;background:rgba(255,255,255,.1);color:#ddd;cursor:pointer">📋</button></div>
+    <div style="display:flex;align-items:center;gap:10px"><span style="color:#aaa">Length:</span><input id="pgLen" type="range" min="4" max="64" value="16" style="flex:1"><span id="pgLenVal" style="color:#fff;min-width:24px">16</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      <label style="color:#aaa;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="pgUpper" checked> A-Z</label>
+      <label style="color:#aaa;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="pgLower" checked> a-z</label>
+      <label style="color:#aaa;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="pgNum" checked> 0-9</label>
+      <label style="color:#aaa;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="pgSym"> !@#$%</label>
+    </div>
+    <button id="pgGen" style="padding:10px;border:none;border-radius:6px;background:linear-gradient(135deg,#6a11cb,#2575fc);color:#fff;cursor:pointer;font-size:14px;font-weight:500">🔄 Generate</button>`
+  createWindow({title:'Password Generator',icon:'🔑',width:360,height:320,minWidth:280,minHeight:260,content:d})
+  const out=d.querySelector('#pgOut'),lenS=d.querySelector('#pgLen'),lenV=d.querySelector('#pgLenVal'),up=d.querySelector('#pgUpper'),lo=d.querySelector('#pgLower'),nu=d.querySelector('#pgNum'),sy=d.querySelector('#pgSym'),gen=d.querySelector('#pgGen'),cp=d.querySelector('#pgCopy')
+  lenS.addEventListener('input',()=>lenV.textContent=lenS.value)
+  function generate(){const chars=(up.checked?'ABCDEFGHIJKLMNOPQRSTUVWXYZ':'')+(lo.checked?'abcdefghijklmnopqrstuvwxyz':'')+(nu.checked?'0123456789':'')+(sy.checked?'!@#$%^&*()_+-=[]{}|;:,.<>?':'')
+    if(!chars){out.value='Select at least one option';return}
+    let pwd='';for(let i=0;i<parseInt(lenS.value);i++)pwd+=chars[Math.floor(Math.random()*chars.length)];out.value=pwd}
+  gen.addEventListener('click',generate)
+  cp.addEventListener('click',()=>{out.select();navigator.clipboard?.writeText(out.value);showToast('Copied!')})
+  generate()
+}
+
+function launchStopwatch() {
+  const d=document.createElement('div');d.style.cssText='padding:20px;text-align:center;font-size:13px;display:flex;flex-direction:column;gap:12px;align-items:center'
+  d.innerHTML=`<div style="font-size:48px;font-weight:200;font-family:monospace;color:#fff;letter-spacing:2px" id="swTime">00:00.00</div>
+    <div style="display:flex;gap:8px">
+      <button id="swStart" style="padding:8px 20px;border:none;border-radius:6px;background:#0a0;color:#fff;cursor:pointer;font-size:13px">▶ Start</button>
+      <button id="swStop" style="padding:8px 20px;border:none;border-radius:6px;background:#a00;color:#fff;cursor:pointer;font-size:13px">⏹ Stop</button>
+      <button id="swReset" style="padding:8px 20px;border:none;border-radius:6px;background:rgba(255,255,255,.1);color:#ddd;cursor:pointer;font-size:13px">↺ Reset</button>
+      <button id="swLap" style="padding:8px 20px;border:none;border-radius:6px;background:rgba(255,255,255,.1);color:#ddd;cursor:pointer;font-size:13px">⏱ Lap</button>
+    </div>
+    <div id="swLaps" style="width:100%;max-height:150px;overflow-y:auto;font-family:monospace;font-size:12px;color:#aaa;text-align:left"></div>`
+  createWindow({title:'Stopwatch',icon:'⏱️',width:340,height:340,minWidth:260,minHeight:280,content:d})
+  const timeEl=d.querySelector('#swTime'),lapsEl=d.querySelector('#swLaps'),start=d.querySelector('#swStart'),stop=d.querySelector('#swStop'),reset=d.querySelector('#swReset'),lap=d.querySelector('#swLap')
+  let running=false,ms=0,laps=[],interval
+  function fmt(t){const min=Math.floor(t/60000),sec=Math.floor((t%60000)/1000),cs=Math.floor((t%1000)/10);return String(min).padStart(2,'0')+':'+String(sec).padStart(2,'0')+'.'+String(cs).padStart(2,'0')}
+  function update(){timeEl.textContent=fmt(ms)}
+  start.addEventListener('click',()=>{if(running)return;running=true;const startMs=Date.now()-ms;interval=setInterval(()=>{ms=Date.now()-startMs;update()},20)})
+  stop.addEventListener('click',()=>{if(!running)return;running=false;clearInterval(interval)})
+  reset.addEventListener('click',()=>{running=false;clearInterval(interval);ms=0;laps=[];update();lapsEl.innerHTML=''})
+  lap.addEventListener('click',()=>{if(!running)return;laps.push(ms);const l=laps.map((t,i)=>`<div style="padding:2px 0">Lap ${i+1}: ${fmt(t)}</div>`).join('');lapsEl.innerHTML=l})
+  update()
 }
 
 function launchPaint() {
@@ -1722,6 +1912,11 @@ function launchAI() {
     map['tetris'] = 'tetris'; map['ai'] = 'ai'; map['app store'] = 'market'
     map['store'] = 'market'; map['file manager'] = 'explorer'; map['files'] = 'explorer'
     map['calc'] = 'calculator'; map['text editor'] = 'notepad'
+    map['minesweeper'] = 'minesweep'; map['2048'] = 'game2048'
+    map['pong'] = 'pong'; map['tictactoe'] = 'tictactoe'
+    map['tic tac toe'] = 'tictactoe'; map['memory'] = 'memory'
+    map['password'] = 'passgen'; map['password generator'] = 'passgen'
+    map['stopwatch'] = 'stopwatch'; map['timer'] = 'stopwatch'
     return map
   }
 
