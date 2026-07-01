@@ -1782,6 +1782,62 @@ function launchAI() {
       return 'ℹ️ No windows open'
     }
 
+    // --- Maximize/Restore window ---
+    if (lower.includes('maximize') || lower.includes('fullscreen') || lower.includes('full screen')) {
+      const target = lower.replace(/maximize|fullscreen|full screen/gi,'').trim()
+      for (const [name, id] of Object.entries(apps)) {
+        if (target && (target === name || target === id || name.includes(target))) {
+          const w = STATE.windows.find(w => w.title.toLowerCase().includes(name))
+          if (w) { maximizeWindow(w.id); return `✅ Maximized **${name}**` }
+          return `ℹ️ No open window for **${name}**`
+        }
+      }
+      const focused = STATE.windows.find(w => w.el && w.el.style.zIndex === String(STATE.maxZ))
+      if (focused) { maximizeWindow(focused.id); return `✅ Maximized **${focused.title}**` }
+      return 'ℹ️ No windows open'
+    }
+    if (lower.includes('restore') || lower.includes('unmaximize') || lower.includes('un-maximize')) {
+      const target = lower.replace(/restore|unmaximize|un-maximize/gi,'').trim()
+      for (const [name, id] of Object.entries(apps)) {
+        if (target && (target === name || target === id || name.includes(target))) {
+          const w = STATE.windows.find(w => w.title.toLowerCase().includes(name))
+          if (w && w.el.classList.contains('maximized')) { restoreWindow(w.id); return `✅ Restored **${name}**` }
+          if (w) return `ℹ️ **${name}** is not maximized`
+          return `ℹ️ No open window for **${name}**`
+        }
+      }
+      const focused = STATE.windows.find(w => w.el && w.el.style.zIndex === String(STATE.maxZ))
+      if (focused && focused.el.classList.contains('maximized')) { restoreWindow(focused.id); return `✅ Restored **${focused.title}**` }
+      return 'ℹ️ No maximized windows'
+    }
+
+    // --- Focus / bring to front ---
+    if (lower.includes('focus ') || lower.includes('bring ') || lower.includes('switch to ')) {
+      const target = lower.replace(/focus |bring |switch to |to front|forward/gi,'').trim()
+      for (const [name, id] of Object.entries(apps)) {
+        if (target && (target === name || target === id || name.includes(target))) {
+          const w = STATE.windows.find(w => w.title.toLowerCase().includes(name))
+          if (w) { focusWindow(w.id); return `✅ Focused **${name}**` }
+          // Try opening it
+          try { launchApp(id); return `✅ Opening **${name}**...` } catch(e) { return `❌ App "${name}" not found or not available` }
+        }
+      }
+      return `❌ App "${target}" not found`
+    }
+
+    // --- List open windows ---
+    if (lower.includes('list windows') || lower.includes('open windows') || lower.includes('what\'s open') || lower.includes('whats open') || lower.includes('what is open') || lower.includes('running')) {
+      if (!STATE.windows.length) return 'ℹ️ No windows open'
+      let result = `🪟 **Open windows (${STATE.windows.length})**:<br>`
+      STATE.windows.forEach((w, i) => {
+        const focusState = w.el && w.el.style.zIndex === String(STATE.maxZ) ? ' ⭐' : ''
+        const minState = w.state === 'minimized' ? ' (minimized)' : ''
+        const maxState = w.el && w.el.classList.contains('maximized') ? ' (maximized)' : ''
+        result += `${i+1}. ${w.icon || '🪟'} **${w.title}**${minState}${maxState}${focusState}<br>`
+      })
+      return result
+    }
+
     // --- List files ---
     if (lower.includes('list files') || lower.includes('show files') || lower.includes('what\'s on') || lower.includes('whats on')) {
       const dirs = ['Desktop','Documents','Downloads','Pictures','Music']
@@ -1789,7 +1845,7 @@ function launchAI() {
       const targetDir = dir || 'Desktop'
       const files = listDir(targetDir)
       if (!files.length) return `📁 **${targetDir}** is empty.`
-      let result = `📁 **${targetDir}**:<br>`
+      let result = `📁 **${targetDir}** (${files.length} items):<br>`
       files.forEach(f => {
         const ico = f.type === 'folder' ? '📁' : getFileIcon(f.type, f.name)
         result += `${ico} ${f.name}<br>`
@@ -1797,8 +1853,18 @@ function launchAI() {
       return result
     }
 
+    // --- Count files ---
+    if (lower.includes('count files') || lower.includes('how many files') || lower.includes('file count')) {
+      const fs = getFS()
+      let total = 0, folders = 0
+      Object.keys(fs).forEach(dir => {
+        fs[dir].forEach(f => { if (f.type === 'folder') folders++; else total++ })
+      })
+      return `📊 **File system stats**: ${total} files, ${folders} folders across ${Object.keys(fs).length} directories`
+    }
+
     // --- Search files ---
-    if (lower.includes('find ') || lower.includes('search files') || lower.includes('search for ')) {
+    if (lower.includes('find ') || lower.includes('search files') || lower.includes('search for ') || lower.includes('search ')) {
       const query = input.replace(/find |search for |search files |search /gi, '').trim().toLowerCase()
       if (!query) return '🔍 What file are you looking for?'
       const fs = getFS()
@@ -1809,7 +1875,7 @@ function launchAI() {
         })
       })
       if (!results.length) return `🔍 No files matching "${query}"`
-      return `🔍 Found ${results.length} file(s):<br>${results.slice(0,15).join('<br>')}`
+      return `🔍 Found ${results.length} file(s):<br>${results.slice(0,20).join('<br>')}${results.length>20?'<br>...and '+(results.length-20)+' more':''}`
     }
 
     // --- Read file ---
@@ -1821,11 +1887,54 @@ function launchAI() {
         const f = fs[dir].find(x => x.name.toLowerCase().includes(target.toLowerCase()))
         if (f) {
           if (f.type === 'folder') return `📁 **${f.name}** is a folder. Use \`list files\` to see contents.`
-          const cont = (f.content || '').substring(0, 300)
+          const cont = (f.content || '').substring(0, 500)
           return `📄 **${f.name}** (${dir}):<br><span style="color:#aaa;font-size:11px">${cont.replace(/\n/g,'<br>')}</span>`
         }
       }
       return `❌ File "${target}" not found`
+    }
+
+    // --- Edit file (append) ---
+    if (lower.includes('append to ') || lower.includes('add to ')) {
+      const m = input.match(/(?:append to|add to)\s+(.+?)\s+(.+)/i)
+      if (m) {
+        const fname = m[1].trim(), content = m[2].trim()
+        const fs = getFS()
+        for (const dir of Object.keys(fs)) {
+          const f = fs[dir].find(x => x.name.toLowerCase().includes(fname.toLowerCase()))
+          if (f && f.type !== 'folder') {
+            f.content = (f.content || '') + '\n' + content
+            saveFS(fs); refreshAllExplorers()
+            return `✅ Appended to **${f.name}** in ${dir}`
+          }
+        }
+        return `❌ File "${fname}" not found`
+      }
+      return 'Usage: append to [filename] [content]'
+    }
+
+    // --- Write to file (replace content) ---
+    if (lower.includes('write to ') || lower.includes('write file ') || lower.includes('save to ')) {
+      const m = input.match(/(?:write to|write file|save to)\s+(.+?)\s+(.+)/i)
+      if (m) {
+        const fname = m[1].trim(), content = m[2].trim()
+        const fs = getFS()
+        for (const dir of Object.keys(fs)) {
+          const f = fs[dir].find(x => x.name.toLowerCase().includes(fname.toLowerCase()))
+          if (f && f.type !== 'folder') {
+            f.content = content
+            saveFS(fs); refreshAllExplorers()
+            return `✅ Updated **${f.name}** in ${dir}`
+          }
+        }
+        // Create if not exists
+        try {
+          createFile('Desktop', fname.includes('.')?fname:fname+'.txt', 'text', content)
+          refreshAllExplorers()
+          return `✅ Created **${fname}** on Desktop with your content`
+        } catch(e) { return '❌ Could not create file' }
+      }
+      return 'Usage: write to [filename] [content]'
     }
 
     // --- Delete file ---
@@ -1841,6 +1950,48 @@ function launchAI() {
         }
       }
       return `❌ File "${target}" not found`
+    }
+
+    // --- Move file ---
+    if (lower.includes('move file ') || lower.includes('move ')) {
+      const m = input.match(/move\s+(.+?)\s+to\s+(.+)/i)
+      if (m) {
+        const fname = m[1].trim(), dstDir = m[2].trim()
+        const validDirs = ['Desktop','Documents','Downloads','Pictures','Music']
+        const targetDir = validDirs.find(d => d.toLowerCase() === dstDir.toLowerCase() || d.toLowerCase().includes(dstDir.toLowerCase()))
+        if (!targetDir) return `❌ Invalid directory. Options: ${validDirs.join(', ')}`
+        const fs = getFS()
+        for (const dir of Object.keys(fs)) {
+          const idx = fs[dir].findIndex(x => x.name.toLowerCase() === fname.toLowerCase())
+          if (idx !== -1) {
+            moveItem(dir, fs[dir][idx].name, targetDir); refreshAllExplorers()
+            return `✅ Moved **${fs[dir][idx].name}** from ${dir} → ${targetDir}`
+          }
+        }
+        return `❌ File "${fname}" not found`
+      }
+      return 'Usage: move [filename] to [directory]'
+    }
+
+    // --- Copy file ---
+    if (lower.includes('copy file ') || lower.includes('duplicate ')) {
+      const m = input.match(/(?:copy file|duplicate)\s+(.+?)\s+to\s+(.+)/i)
+      if (m) {
+        const fname = m[1].trim(), dstDir = m[2].trim()
+        const validDirs = ['Desktop','Documents','Downloads','Pictures','Music']
+        const targetDir = validDirs.find(d => d.toLowerCase() === dstDir.toLowerCase() || d.toLowerCase().includes(dstDir.toLowerCase()))
+        if (!targetDir) return `❌ Invalid directory. Options: ${validDirs.join(', ')}`
+        const fs = getFS()
+        for (const dir of Object.keys(fs)) {
+          const f = fs[dir].find(x => x.name.toLowerCase() === fname.toLowerCase())
+          if (f) {
+            copyItem(dir, f.name, targetDir); refreshAllExplorers()
+            return `✅ Copied **${f.name}** from ${dir} → ${targetDir}`
+          }
+        }
+        return `❌ File "${fname}" not found`
+      }
+      return 'Usage: copy [filename] to [directory]'
     }
 
     // --- Calculator / Math ---
@@ -1862,7 +2013,9 @@ function launchAI() {
       let size = 0
       try { for (let i=0;i<localStorage.length;i++) { const k=localStorage.key(i); if (k&&k.startsWith('kilton_')) size+=localStorage.getItem(k).length*2 } } catch(e) {}
       const sizeStr = size > 1024 ? (size/1024).toFixed(1) + ' KB' : size + ' B'
-      return `💻 **Kilton OS**<br>User: **${currentUser||'guest'}**<br>Apps: ${BUILT_IN_APPS.length + getInstalledIds().length} (${getInstalledIds().length} installed)<br>Windows open: ${STATE.windows.length}<br>Storage: ${sizeStr}<br>Version: 1.0.0`
+      const openCount = STATE.windows.length
+      const appCount = BUILT_IN_APPS.length + getInstalledIds().length
+      return `💻 **Kilton OS 1.5**<br>User: **${currentUser||'guest'}**<br>Apps: ${appCount} (${getInstalledIds().length} installed)<br>Windows open: ${openCount}<br>Storage: ${sizeStr}<br>Date: ${new Date().toLocaleDateString()}<br>Platform: ${navigator.platform || 'web'}`
     }
 
     // --- Time & Date ---
@@ -1957,14 +2110,29 @@ function launchAI() {
       return '😂 ' + jokes[Math.floor(Math.random() * jokes.length)]
     }
 
+    // --- Say / Speak ---
+    if (lower.startsWith('say ') || lower.startsWith('speak ') || lower.startsWith('read aloud ')) {
+      const text = input.replace(/^(say|speak|read aloud)\s+/i, '').trim()
+      if (text && 'speechSynthesis' in window) {
+        const utter = new SpeechSynthesisUtterance(text)
+        utter.rate = 0.9; utter.pitch = 1.0
+        speechSynthesis.cancel(); speechSynthesis.speak(utter)
+        return `🔊 Speaking: "${text}"`
+      }
+      return text ? '🔊 Speech not supported in this browser' : 'What should I say? Usage: say [text]'
+    }
+
     // --- Greetings ---
-    if (lower === 'hi' || lower === 'hello' || lower === 'hey' || lower === 'sup' || lower === 'yo') {
+    if (lower === 'hi' || lower === 'hello' || lower === 'hey' || lower === 'sup' || lower === 'yo' || lower === 'good morning' || lower === 'good evening') {
+      const hour = new Date().getHours()
+      const timeGreet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
       const greets = [
-        "Hey there! What can I help with?",
+        `${timeGreet}! What can I help with?`,
         "Hello! Ready for action. Try `help` for ideas.",
         "Hi! I can open apps, manage files, tell time, and more.",
         "Hey! Need something? Just ask.",
-        "Hello, " + (currentUser || 'friend') + "! How can I assist?"
+        `Hello, ${currentUser || 'friend'}! How can I assist?`,
+        `Hey there! ${timeGreet}. What's on your mind?`
       ]
       return greets[Math.floor(Math.random() * greets.length)]
     }
@@ -1993,19 +2161,27 @@ function launchAI() {
     // --- Help ---
     if (lower === 'help' || lower === '?' || lower.includes('help') || lower.includes('commands') || lower.includes('what can you')) {
       return `🤖 **Kilton AI — Help**<br><br>
-📱 **Apps:** open [app], close [app], minimize [app], install [app]<br>
-📁 **Files:** list files, read [file], find [query], create file [name], delete [name], rename [old] to [new]<br>
-📂 **Folders:** create folder [name], list files, delete file [name], rename file [from] to [to]<br>
+📱 **Apps:** open/launch/start [app], close [app], minimize [app], maximize [app], restore [app], focus/switch to [app], list windows, what's open<br>
+📁 **Files:** list files, read [file], find/search [query], count files, create file [name], delete [name], rename [old] to [new], move [file] to [dir], copy [file] to [dir]<br>
+📝 **Edit:** write to [file] [content], append to [file] [content]<br>
+📂 **Folders:** create folder [name], list files<br>
 🧮 **Math:** calculate [expression], what is [expression]<br>
 🛒 **Market:** search market [query], install [app], my apps<br>
 💻 **System:** system info, time, date, settings<br>
-🎮 **Fun:** joke, hello, bye, snake, tetris<br>
-🔗 **Chain:** `open browser and tell me the time` — chain any commands with "and" or "then"<br><br>
+🎮 **Fun:** joke, hello, bye, snake, tetris, say [text]<br>
+🔗 **Chain:** \`open browser and tell me the time\` — chain any commands with "and" or "then"<br><br>
 <i>Kilton OS 1.5 — I understand natural language! Try: "open browser and play snake"</i>`
     }
 
-    // --- Default: fallback ---
-    return "🤔 I'm not sure how to respond to that.<br><br>Try: `open browser`, `list files`, `create file note.txt`, `joke`, `system info`, `install snake`, or `help`."
+    // --- Default: fallback with suggestions ---
+    const suggestions = [
+      '`open browser`', '`list files`', '`create file note.txt`',
+      '`joke`', '`system info`', '`install snake`',
+      '`help`', '`what\'s open`', '`say hello`',
+      '`write to todo.txt buy milk`', '`count files`'
+    ]
+    const randomSuggestions = suggestions.sort(() => Math.random() - 0.5).slice(0, 4)
+    return "🤔 I'm not sure how to respond to that.<br><br>Try: " + randomSuggestions.join(', ') + ' or `help` for the full list.'
   }
 
   // Handle chained commands
