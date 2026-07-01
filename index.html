@@ -53,7 +53,11 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',Tahoma,s
 .startApp .ico{font-size:20px;width:28px;text-align:center}
 #startFooter{padding:8px 12px;border-top:1px solid rgba(255,255,255,.06);display:flex}
 #startFooter button{padding:6px 12px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:4px;display:flex;align-items:center;gap:6px;font-size:12px}
+#startFooter button{padding:6px 12px;border:none;background:transparent;color:#aaa;cursor:pointer;border-radius:4px;display:flex;align-items:center;gap:6px;font-size:12px}
 #startFooter button:hover{background:rgba(255,255,255,.08);color:#fff}
+#startSearch{padding:8px 14px;border:none;background:rgba(255,255,255,.06);color:#ddd;font-size:13px;outline:none;margin:8px 12px;border-radius:6px}
+#startSearch::placeholder{color:#555}
+#startSearch:focus{background:rgba(255,255,255,.1)}
 
 /* Windows */
 .window{position:absolute;background:rgba(30,30,45,.95);backdrop-filter:blur(12px);border-radius:8px;border:1px solid rgba(255,255,255,.1);box-shadow:0 8px 40px rgba(0,0,0,.5);display:flex;flex-direction:column;min-width:200px;min-height:100px;z-index:100}
@@ -327,6 +331,7 @@ body.light-theme .context-menu-item:hover{background:rgba(0,0,0,.08);color:#222}
       <div class="status">Online</div>
     </div>
   </div>
+  <input id="startSearch" placeholder="Search apps..." spellcheck="false">
   <div id="startApps"></div>
   <div id="startFooter">
     <button id="lockBtn">🔒 Lock</button>
@@ -758,6 +763,15 @@ function updateTaskbar() {
       else if (win.id === STATE.focusedWin) minimizeWindow(win.id)
       else focusWindow(win.id)
     })
+    btn.addEventListener('contextmenu', e => {
+      e.preventDefault(); e.stopPropagation()
+      showContextMenu(e.clientX, e.clientY, [
+        {ico:'🪟', label:'Restore', fn:()=>restoreWindow(win.id)},
+        {ico:'⤓', label:'Minimize', fn:()=>minimizeWindow(win.id)},
+        win.el?.classList.contains('maximized')?null:{ico:'⤢', label:'Maximize', fn:()=>maximizeWindow(win.id)},
+        {ico:'✕', label:'Close', fn:()=>closeWindow(win.id)}
+      ].filter(Boolean))
+    })
     container.appendChild(btn)
   })
 }
@@ -767,18 +781,28 @@ function toggleStartMenu() {
   STATE.startOpen = !STATE.startOpen
   document.getElementById('startMenu').classList.toggle('open', STATE.startOpen)
   if (STATE.startOpen && STATE.clockOpen) toggleClockPopup()
+  if (STATE.startOpen) setTimeout(() => document.getElementById('startSearch')?.focus(), 50)
 }
 
 function initStartMenu() {
   const container = document.getElementById('startApps')
-  container.innerHTML = ''
-  getAllStartApps().forEach(a => {
-    const btn = document.createElement('button')
-    btn.className = 'startApp'
-    btn.innerHTML = `<span class="ico">${a.ico}</span>${a.name}`
-    btn.addEventListener('click', () => { toggleStartMenu(); launchApp(a.id) })
-    container.appendChild(btn)
-  })
+  const search = document.getElementById('startSearch')
+  function renderApps(filter) {
+    container.innerHTML = ''
+    const q = (filter||'').toLowerCase()
+    getAllStartApps().filter(a => !q || a.name.toLowerCase().includes(q) || a.ico.toLowerCase().includes(q)).forEach(a => {
+      const btn = document.createElement('button')
+      btn.className = 'startApp'
+      btn.innerHTML = `<span class="ico">${a.ico}</span>${a.name}`
+      btn.addEventListener('click', () => { toggleStartMenu(); launchApp(a.id) })
+      container.appendChild(btn)
+    })
+    if (!container.children.length) container.innerHTML = '<div style="padding:20px;text-align:center;color:#555;font-size:12px">No apps found</div>'
+  }
+  renderApps()
+  search.addEventListener('input', () => renderApps(search.value))
+  search.addEventListener('click', e => e.stopPropagation())
+  // Focus search when start menu opens
 
   document.getElementById('powerBtn').addEventListener('click', () => {
     toggleStartMenu()
@@ -1002,29 +1026,78 @@ function launch2048() {
 }
 
 function launchPong() {
-  const W=500,H=300,PW=8,PH=40,BS=6
-  const c=document.createElement('canvas');c.width=W;c.height=H+20;c.style.cssText='display:block;margin:auto;background:#111'
-  const ctx=c.getContext('2d');const w=createWindow({title:'Pong',icon:'🏓',width:W+16,height:H+70,minWidth:380,minHeight:320,content:c})
-  let ball={x:W/2,y:H/2,dx:3,dy:2},p1={y:H/2-PH/2},p2={y:H/2-PH/2},s1=0,s2=0,paused=false
-  function reset(){ball={x:W/2,y:H/2,dx:3*(Math.random()>.5?1:-1),dy:2*(Math.random()>.5?1:-1)}}
-  function step(){if(paused)return
-    ball.x+=ball.dx;ball.y+=ball.dy
-    if(ball.y<0||ball.y>H)ball.dy=-ball.dy
-    if(ball.x<PW&&ball.y>p1.y&&ball.y<p1.y+PH){ball.dx=-ball.dx;ball.x=PW+1}
-    if(ball.x>W-PW&&ball.y>p2.y&&ball.y<p2.y+PH){ball.dx=-ball.dx;ball.x=W-PW-1}
-    if(ball.x<0){s2++;reset()}
-    if(ball.x>W){s1++;reset()}
+  const W=520,H=320,PW=10,PH=60,BS=6,MAX_SCORE=5
+  const c=document.createElement('canvas');c.width=W;c.height=H+28;c.style.cssText='display:block;margin:auto;background:#0a0a12'
+  const ctx=c.getContext('2d');const w=createWindow({title:'Pong',icon:'🏓',width:W+20,height:H+80,minWidth:420,minHeight:360,content:c})
+  let ball,p1,p2,s1=0,s2=0,paused=false,serving=true,serveTimer=0,winner='',keys={}
+  const audioCtx=new (window.AudioContext||window.webkitAudioContext)()
+  function beep(freq=440,dur=.08){try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=freq;g.gain.value=.1;o.start();g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);setTimeout(()=>o.stop(),dur*1000)}catch(e){}}
+  function init(){ball={x:W/2,y:H/2,dx:4*(Math.random()>.5?1:-1),dy:3*(Math.random()>.5?1:-1)};p1={y:H/2-PH/2,speed:5};p2={y:H/2-PH/2,speed:4.5};serving=true;serveTimer=90;winner=''}
+  function reset(){ball={x:W/2,y:H/2,dx:4*(Math.random()>.5?1:-1),dy:3*(Math.random()>.5?1:-1)};serving=true;serveTimer=90}
+  function step(){if(paused||winner)return
+    if(serving){serveTimer--;if(serveTimer<=0)serving=false;draw();return}
+    // Paddle movement (keyboard)
+    if(keys['w']||keys['ArrowUp'])p1.y=Math.max(0,p1.y-p1.speed)
+    if(keys['s']||keys['ArrowDown'])p1.y=Math.min(H-PH,p1.y+p1.speed)
     // AI
-    p2.y+=ball.y>(p2.y+PH/2)?2.5:-2.5
+    const target=ball.y-PH/2+ball.dy*((p2.y+PH/2-ball.y)/ball.dy||0)
+    const diff=target-p2.y
+    if(diff>5)p2.y=Math.min(H-PH,p2.y+Math.min(p2.speed+2,Math.abs(diff)*.15))
+    else if(diff<-5)p2.y=Math.max(0,p2.y-Math.min(p2.speed+2,Math.abs(diff)*.15))
+    // Ball
+    ball.x+=ball.dx;ball.y+=ball.dy
+    if(ball.y<0||ball.y>H){ball.dy=-ball.dy;beep(300,.05)}
+    // P1 collision
+    if(ball.x<PW+BS&&ball.x>0&&ball.y>p1.y&&ball.y<p1.y+PH){
+      ball.dx=-ball.dx+Math.random()*.2;ball.x=PW+BS+1
+      const hit=(ball.y-(p1.y+PH/2))/(PH/2);ball.dy+=hit*.5
+      const speed=Math.min(8,Math.abs(ball.dx)+.3);ball.dx=ball.dx>0?speed:-speed
+      beep(520,.08)}
+    // P2 collision
+    if(ball.x>W-PW-BS&&ball.x<W&&ball.y>p2.y&&ball.y<p2.y+PH){
+      ball.dx=-ball.dx-Math.random()*.2;ball.x=W-PW-BS-1
+      const hit=(ball.y-(p2.y+PH/2))/(PH/2);ball.dy+=hit*.5
+      const speed=Math.min(8,Math.abs(ball.dx)+.3);ball.dx=ball.dx>0?speed:-speed
+      beep(440,.08)}
+    // Score
+    if(ball.x<0){s2++;beep(200,.15);if(s2>=MAX_SCORE)winner='AI';else reset()}
+    if(ball.x>W){s1++;beep(600,.15);if(s1>=MAX_SCORE)winner='You!';else reset()}
     draw()}
-  function draw(){ctx.fillStyle='#111';ctx.fillRect(0,0,c.width,c.height)
-    ctx.fillStyle='#fff';ctx.fillRect(2,p1.y,PW,PH);ctx.fillRect(W-PW-2,p2.y,PW,PH)
-    ctx.beginPath();ctx.arc(ball.x,ball.y,BS,0,Math.PI*2);ctx.fill()
-    ctx.setLineDash([4,6]);ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.strokeStyle='rgba(255,255,255,.15)';ctx.stroke();ctx.setLineDash([])
-    ctx.fillStyle='#888';ctx.font='11px sans-serif';ctx.fillText(s1+' : '+s2,10,H+14);ctx.fillStyle='#555';ctx.font='9px sans-serif';ctx.fillText('Mouse:move paddle P:pause',W-160,H+14)
-    if(paused){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,0,W,H);ctx.fillStyle='#fff';ctx.font='18px sans-serif';ctx.fillText('PAUSED',W/2-40,H/2-4)}}
-  c.addEventListener('mousemove',e=>{const rect=c.getBoundingClientRect();p1.y=Math.max(0,Math.min(H-PH,e.clientY-rect.top-20))})
-  document.addEventListener('keydown',function h(e){if(w.state==='minimized')return;if(e.key==='p'||e.key==='P'||e.key===' '){e.preventDefault();paused=!paused}})
+  function draw(){ctx.fillStyle='#0a0a12';ctx.fillRect(0,0,c.width,c.height)
+    // Net
+    ctx.setLineDash([6,8]);ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=2;ctx.stroke();ctx.setLineDash([])
+    // Paddles with glow
+    ctx.shadowColor='rgba(0,150,255,.3)';ctx.shadowBlur=12;ctx.fillStyle='#0af';ctx.beginPath();ctx.roundRect(2,p1.y,PW,PH,4);ctx.fill()
+    ctx.shadowColor='rgba(255,50,50,.3)';ctx.shadowBlur=12;ctx.fillStyle='#f44';ctx.beginPath();ctx.roundRect(W-PW-2,p2.y,PW,PH,4);ctx.fill()
+    ctx.shadowBlur=0
+    // Ball with glow
+    ctx.shadowColor='#fff';ctx.shadowBlur=18;ctx.beginPath();ctx.arc(ball.x,ball.y,BS,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.shadowBlur=0
+    // Score
+    ctx.font='bold 28px sans-serif';ctx.textAlign='center'
+    ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillText(s1,W/2-40,30);ctx.fillText(s2,W/2+40,30)
+    ctx.font='bold 14px sans-serif';ctx.fillStyle='rgba(255,255,255,.25)';ctx.fillText('YOU',W/2-40,48);ctx.fillText('AI',W/2+40,48)
+    // Bottom info
+    ctx.textAlign='left';ctx.fillStyle='#666';ctx.font='10px sans-serif';ctx.fillText('Mouse/W,S:move ␣:pause',8,H+16)
+    ctx.textAlign='right';ctx.fillStyle='#555';ctx.font='10px sans-serif'
+    ctx.fillText(`First to ${MAX_SCORE} wins`,c.width-8,H+16)
+    // Serve countdown
+    if(serving){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,0,W,H);ctx.fillStyle='#fff';ctx.font='bold 36px sans-serif';ctx.textAlign='center';ctx.fillText(Math.ceil(serveTimer/30),W/2,H/2+10)}
+    // Pause
+    if(paused){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,0,W,H);ctx.fillStyle='#fff';ctx.font='bold 22px sans-serif';ctx.textAlign='center';ctx.fillText('PAUSED',W/2,H/2-4);ctx.fillStyle='#888';ctx.font='12px sans-serif';ctx.fillText('Press ␣ to resume',W/2,H/2+22)}
+    // Winner
+    if(winner){ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillRect(0,0,W,H)
+      ctx.fillStyle='#ff0';ctx.font='bold 32px sans-serif';ctx.textAlign='center';ctx.fillText('🏆 '+winner+' Wins!',W/2,H/2-16)
+      ctx.fillStyle=s1>s2?'#0af':'#f44';ctx.font='bold 16px sans-serif';ctx.fillText(s1+' — '+s2,W/2,H/2+18)
+      ctx.fillStyle='#888';ctx.font='12px sans-serif';ctx.fillText('Click to play again',W/2,H/2+48)}}
+  init()
+  // Controls
+  c.addEventListener('mousemove',e=>{if(winner)return;const rect=c.getBoundingClientRect();const my=Math.max(0,Math.min(H-PH,(e.clientY-rect.top-14)));p1.y=my})
+  document.addEventListener('keydown',function h(e){if(w.state==='minimized')return
+    keys[e.key]=true
+    if(e.key===' '||e.key==='p'||e.key==='P'){e.preventDefault();paused=!paused}
+    if(e.key==='r'&&winner){init();draw()}})
+  document.addEventListener('keyup',e=>{keys[e.key]=false})
+  c.addEventListener('click',()=>{if(winner){s1=0;s2=0;init();draw()}})
   w._interval=setInterval(step,1000/60)
 }
 
@@ -2467,9 +2540,9 @@ function positionContextMenu(menu, x, y) {
   menu.style.top = Math.min(y, window.innerHeight - 60 - 40) + 'px'
 }
 
-function showContextMenu(x, y) {
+function showContextMenu(x, y, customItems) {
   const menu = document.getElementById('ctxMenu')
-  const items = [
+  const items = customItems || [
     {ico:'📁', label:'New Folder', fn:() => {
       const name = prompt('Folder name:')
       if (name && name.trim()) { createFolder('Desktop', name.trim()); refreshAllExplorers() }
@@ -2913,6 +2986,8 @@ function startDesktop() {
       if (STATE.clockOpen) { toggleClockPopup() }
       document.getElementById('ctxMenu').classList.remove('open')
     }
+    if (e.key === 'Meta' || e.key === 'OS') { e.preventDefault(); toggleStartMenu() }
+    if (e.ctrlKey && e.key === 'w') { e.preventDefault(); const f = STATE.windows.find(w => w.el && w.el.style.zIndex === String(STATE.maxZ)); if (f) closeWindow(f.id) }
     if (e.ctrlKey && e.key === 'n') { e.preventDefault(); launchApp('notepad') }
     if (e.ctrlKey && e.key === 'e') { e.preventDefault(); launchApp('explorer') }
     if (e.ctrlKey && e.shiftKey && e.key === 'A') { e.preventDefault(); launchApp('ai') }
